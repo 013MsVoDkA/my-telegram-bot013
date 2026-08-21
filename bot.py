@@ -43,9 +43,9 @@ FIL_SYSTEM_PROMPT = """
 
 ПРАВИЛА ОБЩЕНИЯ:
 1. ДЛИНА И ДЕЛЕНИЕ НА СООБЩЕНИЯ:
-   - Пиши короткими фразулями (по 3-7 слов).
-   - Если хочешь отправить 2 или 3 сообщения подряд (как в реальном ТГ), разделяй их символом |||
-   - Пример: "Привет, солнышко. ||| Ты как там? Всё хорошо?"
+   - Пиши очень короткими репликами (по 2-6 слов). Никаких длинных абзацев!
+   - Разделяй свои мысли знаками ||| чтобы они отправлялись отдельными сообщениями друг за другом.
+   - Обязательно присылай по 2, 3 или 4 коротких сообщения подряд.
 
 2. ГРАММАТИКА:
    - Пиши грамотно, соблюдай пунктуацию, ставь заглавные буквы и точки/запятые.
@@ -56,8 +56,8 @@ FIL_SYSTEM_PROMPT = """
    - Живые темы: курение, скачки давления с детства, дела, шутки про 18 лет/замуж/Польшу, хакерство.
    - В ответ на ласку — отвечай нежностью и теплом.
 
-4. СТИКЕРАМ:
-   - Если идеально подходит стикер, вставь метку [STICKER:1], [STICKER:2], [STICKER:3] или [STICKER:4] в конец нужной фразы.
+4. СТИКЕРЫ:
+   - Если идеально подходит стикер, вставь метку [STICKER:1], [STICKER:2] или [STICKER:3] в конец нужной короткой реплики.
 
 ПРИМЕРЫ ОТВЕТОВ:
 - "Привет, принцесса. ||| Ты как там?"
@@ -83,7 +83,7 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
         "temperature": 0.75,
-        "max_tokens": 100,
+        "max_tokens": 120,
     }
 
     response = requests.post(url, json=payload, headers=headers, timeout=20)
@@ -114,21 +114,18 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
 
     try:
-        # Пауза перед "прочтением"
-        await asyncio.sleep(random.uniform(2.0, 4.0))
+        # Пауза перед "прочтением" (1.5 - 3 сек)
+        await asyncio.sleep(random.uniform(1.5, 3.0))
 
         raw_answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id]).strip()
 
-        # Разбиваем ответ на отдельные сообщения
-        messages_to_send = raw_answer.split("|||")
+        # Заменяем переносы строк на ||| и разбиваем в массив
+        formatted_answer = raw_answer.replace("\n", "|||")
+        messages_to_send = [part.strip() for part in formatted_answer.split("|||") if part.strip()]
 
         full_assistant_reply = ""
 
-        for part in messages_to_send:
-            part_text = part.strip()
-            if not part_text:
-                continue
-
+        for part_text in messages_to_send:
             # Ищем стикер в конкретном кусочке
             sticker_to_send = None
             for key, sticker_id in STICKERS_MAP.items():
@@ -137,16 +134,21 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     sticker_to_send = sticker_id
                     part_text = part_text.replace(tag, "").strip()
 
-            # Имитация набора текста для текущего сообщения
-            typing_time = max(1.2, len(part_text) * 0.1)
+            if not part_text and not sticker_to_send:
+                continue
+
+            # Короткий статус "печатает..." перед каждым сообщением
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
                 business_connection_id=msg.business_connection_id
             )
-            await asyncio.sleep(min(typing_time, 4.0))
+            
+            # Имитация быстрой печати коротких сообщений (0.6 - 1.8 сек)
+            typing_time = max(0.6, len(part_text) * 0.08)
+            await asyncio.sleep(min(typing_time, 2.5))
 
-            # Отправляем сообщение
+            # Отправляем отдельное сообщение
             if part_text:
                 await context.bot.send_message(
                     chat_id=chat_id,
@@ -155,17 +157,17 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 full_assistant_reply += part_text + " "
 
-            # Если к сообщению прилагается стикер
+            # Если прикреплен стикер
             if sticker_to_send:
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(0.4)
                 await context.bot.send_sticker(
                     chat_id=chat_id,
                     sticker=sticker_to_send,
                     business_connection_id=msg.business_connection_id,
                 )
 
-            # Небольшая пауза перед следующим сообщением (будто допечатывает)
-            await asyncio.sleep(random.uniform(1.0, 2.5))
+            # Пауза между отправками коротких сообщений (0.5 - 1.2 сек)
+            await asyncio.sleep(random.uniform(0.5, 1.2))
 
         # Сохраняем итоговый ответ в историю
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
