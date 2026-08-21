@@ -21,10 +21,9 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
 # 🎭 БАЗА СТИКЕРОВ С ID
 STICKERS_MAP = {
-    "1": "CAACAgIAAxkBAAEtwulqhZxwMpsZOnbgHot-phjOyODN-AACno8AAq5I6UuVapKegpUePz0E",
-    "2": "CAACAgIAAxkBAAEtwxJqhaEr0BTu1z2sEv6j7Rkktd0-VQACiXwAAn_y2UiveLx-PFjtlD0E",
-    "3": "CAACAgIAAxkBAAEtwxpqhaFrrP0wRzZePLFtBik6xr23LgAC6BcAAowL2UiiSqB-xZy1vD0E",
-    "4": "CAACAgIAAxkBAAEtwxxqhaGQ92K8aiQnWyv0JX9UQdqY0AAC1gwAAoDJQEtXks0tYHcgDz0E",
+    "1": "CAACAgIAAxkBAAEtwxJqhaEr0BTu1z2sEv6j7Rkktd0-VQACiXwAAn_y2UiveLx-PFjtlD0E",
+    "2": "CAACAgIAAxkBAAEtwxpqhaFrrP0wRzZePLFtBik6xr23LgAC6BcAAowL2UiiSqB-xZy1vD0E",
+    "3": "CAACAgIAAxkBAAEtwxxqhaGQ92K8aiQnWyv0JX9UQdqY0AAC1gwAAoDJQEtXks0tYHcgDz0E",
 }
 
 logging.basicConfig(
