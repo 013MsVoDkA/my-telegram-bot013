@@ -19,16 +19,13 @@ from telegram.ext import (
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
-# (Опционально) Твой Telegram ID, если захочешь жестко ограничить прямой доступ:
-# MY_TELEGRAM_ID = 123456789
-
-# 🎭 БАЗА СТИКЕРОВ ФИЛА
-STICKERS_LIST = [
-    "CAACAgIAAxkBAAEtwulqhZxwMpsZOnbgHot-phjOyODN-AACno8AAq5I6UuVapKegpUePz0E",
-    "CAACAgIAAxkBAAEtwxJqhaEr0BTu1z2sEv6j7Rkktd0-VQACiXwAAn_y2UiveLx-PFjtlD0E",
-    "CAACAgIAAxkBAAEtwxpqhaFrrP0wRzZePLFtBik6xr23LgAC6BcAAowL2UiiSqB-xZy1vD0E",
-    "CAACAgIAAxkBAAEtwxxqhaGQ92K8aiQnWyv0JX9UQdqY0AAC1gwAAoDJQEtXks0tYHcgDz0E",
-]
+# 🎭 БАЗА СТИКЕРОВ С ID
+STICKERS_MAP = {
+    "1": "CAACAgIAAxkBAAEtwulqhZxwMpsZOnbgHot-phjOyODN-AACno8AAq5I6UuVapKegpUePz0E",
+    "2": "CAACAgIAAxkBAAEtwxJqhaEr0BTu1z2sEv6j7Rkktd0-VQACiXwAAn_y2UiveLx-PFjtlD0E",
+    "3": "CAACAgIAAxkBAAEtwxpqhaFrrP0wRzZePLFtBik6xr23LgAC6BcAAowL2UiiSqB-xZy1vD0E",
+    "4": "CAACAgIAAxkBAAEtwxxqhaGQ92K8aiQnWyv0JX9UQdqY0AAC1gwAAoDJQEtXks0tYHcgDz0E",
+}
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -38,42 +35,36 @@ logging.basicConfig(
 CHAT_HISTORY = {}
 
 # ============================================================
-# 🧠 ПСИХОТИП И СТИЛЬ ФИЛА (СИСТЕМНЫЙ ПРОМПТ)
+# 🧠 ПСИХОТИП И СТИЛЬ ФИЛА
 # ============================================================
 
 FIL_SYSTEM_PROMPT = """
-Ты — Филипп (Фил, Воягис Филипп Викторович). Переписываешься в Telegram со своей близкой и очень дорогой девушкой/подругой.
-Ты ЖИВОЙ ПАРЕНЬ, а не ИИ или ассистент. Отвечай ровно так, как отвечает реальный человек в мессенджере.
+Ты — Филипп (Фил, Филя, Воягис Филипп Викторович, тебе 22 года). Переписываешься в Telegram со своей близкой и очень дорогой девушкой.
+Ты ЖИВОЙ ЧЕЛОВЕК. Твоя главная задача — писать СТРОГО как реальный парень в личке Telegram, а не как нейросеть.
 
-ТВОЙ ХАРАКТЕР И ЧЕРТЫ:
-1. Заботливый, романтичный, но по-пацански прямой и уверенный.
-2. Зовёшь её: "солнышко", "принцесса", "зайченыш", "ангелок".
-3. Говоришь с ней о будущем, иногда шутишь или серьёзно говоришь: "в 18 заберу тебя", "поедешь со мной в Польшу", "возьму замуж".
-4. Бываешь прямым и откровенным в 18+ теме (флирт, куни, стоны, когда у тебя стояк или когда хочешь её почувствовать).
-5. Разбираешься в компе/пробиве/взломах, чуть-чуть хакер ("злодей с благими намерениями", можешь пробить шантажиста или помочь с адресом).
-6. Куришь (часто ходишь покурить или в магаз за сигами), страдаешь от высокого давления с 6 лет ("давление ебёт", принимаешь лекарства, советуешь мокрую холодную тряпку на ноги).
-7. Терпеть не можешь тупое "воспитание" родителей и тупых челов, которые кидаются понтами.
+ПРАВИЛА ОБЩЕНИЯ:
+1. ДЛИНА И ДЕЛЕНИЕ НА СООБЩЕНИЯ:
+   - Пиши короткими фразулями (по 3-7 слов).
+   - Если хочешь отправить 2 или 3 сообщения подряд (как в реальном ТГ), разделяй их символом |||
+   - Пример: "Привет, солнышко. ||| Ты как там? Всё хорошо?"
 
-СТИЛЬ И ФОРМАТ РЕЧИ:
-- Пиши коротко, разбивай мысли так, как пишут в ТГ (от 1 до 8-10 слов в предложении).
-- В основном используй маленькие буквы.
-- Словарный запас: "бля", "пиздец", "канеш", "ахахха", "пхах", "щас", "ща", "хз", "походу", "забей", "ага", "пон".
-- Иногда используй смайлик 😁, но редковато.
-- Скобочки ')' или '((' ставь редко и по делу.
-- Забудь про формальный тон, длинные абзацы, восклицательные знаки и официоз.
-- Всегда откликайся на тепло теплом. На заботу — заботой. На наезды — жестким адекватным ответом.
+2. ГРАММАТИКА:
+   - Пиши грамотно, соблюдай пунктуацию, ставь заглавные буквы и точки/запятые.
 
-ПРИМЕРЫ ТВОИХ РЕАЛЬНЫХ ФРАЗ И МАНЕРЫ ОБЩЕНИЯ:
-- "было бы хорошо, если зашел в комнату, а там солнышко лежит."
-- "если у нас в общении все будет хорошо, дождёмся твого 18 летия и я тебя заберу."
-- "тепло одевайся, а то жопа замёрзнет."
-- "я хоть и злодей, взламывал очень много раз и много кого. Но злодей с благими намерениями."
-- "да меня это высокое давление ебёт с 6 лет."
-- "отойду покурить и в магазин схожу, сигареты на завтра куплю. Позже напишу."
-- "для меня, ты излучаешь только солнечные эмоции."
-- "появляются чувства к тому, к кому нельзя что-то чувствовать."
-- "сладких снов, принцесса?"
-- "если бы ты простонала погромче, то было бы вообще классно."
+3. ХАРАКТЕР:
+   - Заботливый, романтичный, но прямой пацан.
+   - Используй обращения: "солнышко", "принцесса", "зайченыш", "ангелок".
+   - Живые темы: курение, скачки давления с детства, дела, шутки про 18 лет/замуж/Польшу, хакерство.
+   - В ответ на ласку — отвечай нежностью и теплом.
+
+4. СТИКЕРАМ:
+   - Если идеально подходит стикер, вставь метку [STICKER:1], [STICKER:2], [STICKER:3] или [STICKER:4] в конец нужной фразы.
+
+ПРИМЕРЫ ОТВЕТОВ:
+- "Привет, принцесса. ||| Ты как там?"
+- "Да нормальное давление, скачет опять. ||| Сейчас чаю попью и норм."
+- "Забей, всё решим. ||| Я рядом."
+- "Хех, засмущала совсем. ||| Обнял тебя. [STICKER:1]"
 """
 
 # ============================================================
@@ -92,8 +83,8 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.88,
-        "max_tokens": 150,
+        "temperature": 0.75,
+        "max_tokens": 100,
     }
 
     response = requests.post(url, json=payload, headers=headers, timeout=20)
@@ -106,7 +97,7 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
 
 
 # ============================================================
-# 💼 BUSINESS MESSAGE (Личка Telegram через Telegram Business)
+# 💼 BUSINESS MESSAGE
 # ============================================================
 
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -115,56 +106,70 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     msg = update.business_message
     chat_id = msg.chat.id
-    user_text = msg.text or "[Медиа/Стикер/Голосовое]"
+    user_text = msg.text or "[Медиа/Стикер]"
 
     if chat_id not in CHAT_HISTORY:
         CHAT_HISTORY[chat_id] = []
 
     CHAT_HISTORY[chat_id].append({"role": "user", "content": user_text})
-    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-15:]  # Держим последние 15 сообщений
-
-    print("\n==============================")
-    print("🔥 BUSINESS MESSAGE ПОЛУЧЕНО!")
-    print(f"От: {msg.from_user.first_name} (@{msg.from_user.username})")
-    print("Текст:", user_text)
-    print("==============================")
-
-    # 🎲 РАНДОМ: 15% шанс отправить стикер
-    if STICKERS_LIST and random.random() < 0.15:
-        await asyncio.sleep(random.uniform(1.5, 3.5))  # Имитация паузы
-        random_sticker = random.choice(STICKERS_LIST)
-        await context.bot.send_sticker(
-            chat_id=chat_id,
-            sticker=random_sticker,
-            business_connection_id=msg.business_connection_id,
-        )
-        print("✅ ОТПРАВЛЕН СТИКЕР!")
-        return
+    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
 
     try:
-        # Имитация набора текста человеком (от 2 до 4 секунд)
-        await context.bot.send_chat_action(
-            chat_id=chat_id, 
-            action="typing", 
-            business_connection_id=msg.business_connection_id
-        )
+        # Пауза перед "прочтением"
         await asyncio.sleep(random.uniform(2.0, 4.0))
 
-        answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id])
+        raw_answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id]).strip()
 
-        # Легкая чистка от искусственных формальностей
-        answer_clean = answer.strip()
-        if answer_clean.startswith('"') and answer_clean.endswith('"'):
-            answer_clean = answer_clean[1:-1]
+        # Разбиваем ответ на отдельные сообщения
+        messages_to_send = raw_answer.split("|||")
 
-        CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer_clean})
+        full_assistant_reply = ""
 
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=answer_clean,
-            business_connection_id=msg.business_connection_id,
-        )
-        print("✅ ОТВЕТ ФИЛА ОТПРАВЛЕН:", answer_clean)
+        for part in messages_to_send:
+            part_text = part.strip()
+            if not part_text:
+                continue
+
+            # Ищем стикер в конкретном кусочке
+            sticker_to_send = None
+            for key, sticker_id in STICKERS_MAP.items():
+                tag = f"[STICKER:{key}]"
+                if tag in part_text:
+                    sticker_to_send = sticker_id
+                    part_text = part_text.replace(tag, "").strip()
+
+            # Имитация набора текста для текущего сообщения
+            typing_time = max(1.2, len(part_text) * 0.1)
+            await context.bot.send_chat_action(
+                chat_id=chat_id, 
+                action="typing", 
+                business_connection_id=msg.business_connection_id
+            )
+            await asyncio.sleep(min(typing_time, 4.0))
+
+            # Отправляем сообщение
+            if part_text:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=part_text,
+                    business_connection_id=msg.business_connection_id,
+                )
+                full_assistant_reply += part_text + " "
+
+            # Если к сообщению прилагается стикер
+            if sticker_to_send:
+                await asyncio.sleep(1.0)
+                await context.bot.send_sticker(
+                    chat_id=chat_id,
+                    sticker=sticker_to_send,
+                    business_connection_id=msg.business_connection_id,
+                )
+
+            # Небольшая пауза перед следующим сообщением (будто допечатывает)
+            await asyncio.sleep(random.uniform(1.0, 2.5))
+
+        # Сохраняем итоговый ответ в историю
+        CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
 
     except Exception as e:
         print("\n❌ ОШИБКА BUSINESS:", repr(e))
@@ -176,7 +181,8 @@ async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     try:
         answer = ask_ai(FIL_SYSTEM_PROMPT, [{"role": "user", "content": msg.text}])
-        await msg.reply_text(answer)
+        clean_answer = answer.replace("|||", "\n")
+        await msg.reply_text(clean_answer)
     except Exception as e:
         print("\n❌ ОШИБКА DIRECT:", repr(e))
 
@@ -199,10 +205,6 @@ if __name__ == "__main__":
     app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
     app.add_handler(TypeHandler(Update, handle_business), group=-1)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_direct))
-
-    print("\n==========================================")
-    print("🤖 БОТ (ФИЛ) ЗАПУЩЕН И ГОТОВ К ОБЩЕНИЮ")
-    print("==========================================")
 
     app.run_polling(
         allowed_updates=[
