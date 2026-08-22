@@ -3,6 +3,7 @@ import os
 import random
 import asyncio
 import requests
+import httpx
 from datetime import datetime, timezone, timedelta
 from aiohttp import web
 from telegram import Update
@@ -20,6 +21,7 @@ from telegram.ext import (
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
 MSK_TZ = timezone(timedelta(hours=3))
@@ -61,6 +63,7 @@ FIL_SYSTEM_PROMPT = """
 
 🚨 ВНИМАТЕЛЬНОСТЬ К КОНТЕКСТУ И ПАМЯТЬ:
 1. Внимательно читай всю историю диалога. Помни, о чём вы говорили ранее, не задавай повторных вопросов и отвечай строго по смыслу последних сообщений.
+2. Если в сообщении указано, что она отправила голосовое или кружок, отвечай так, будто ты реально послушал или посмотрел её запись!
 
 🚨 СТРОЖАЙШИЕ ПРАВИЛА ДИСТАНЦИИ (ВЫ ЖИВЕТЕ В РАЗНЫХ ГОРОДАХ / ДАЛЕКО ДРУГ ОТ ДРУГА):
 1. ВЫ НЕ ВМЕСТЕ И НЕ РЯДОМ! Вы переписываетесь строго онлайн!
@@ -120,6 +123,28 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
         return data["choices"][0]["message"]["content"]
     else:
         raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
+
+async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
+    if not GROQ_API_KEY:
+        return "[Пользователь отправил аудио/кружок, но GROQ_API_KEY не настроен]"
+
+    groq_url = "https://api.groq.com/openai/v1/audio/transcriptions"
+    headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
+    files = {"file": (filename, bytes(file_bytes))}
+    data = {"model": "whisper-large-v3"}
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(groq_url, headers=headers, data=data, files=files)
+            if resp.status_code == 200:
+                transcript = resp.json().get("text", "").strip()
+                return f"(отправила голосовое/кружок): {transcript}"
+            else:
+                print(f"⚠️ Ошибка Groq API {resp.status_code}: {resp.text}")
+                return "(отправила голосовое/кружок, но не удалось распознать речь)"
+    except Exception as e:
+        print(f"⚠️ Ошибка сети при транскрипции: {e}")
+        return "(отправила голосовое/кружок, произошла ошибка транскрипции)"
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     delay_seconds = random.uniform(45.0, 1200.0)
@@ -202,7 +227,23 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     msg = update.business_message
     chat_id = msg.chat.id
-    user_text = msg.text or "[Медиа/Стикер]"
+    
+    # Обработка текста, голосовых и кружочков
+    user_text = msg.text
+
+    if not user_text:
+        if msg.voice or msg.video_note:
+            file_obj = msg.voice if msg.voice else msg.video_note
+            filename = "audio.ogg" if msg.voice else "video.mp4"
+            try:
+                file = await context.bot.get_file(file_obj.file_id)
+                file_bytes = await file.download_as_bytearray()
+                user_text = await transcribe_audio(file_bytes, filename)
+            except Exception as e:
+                print(f"⚠️ Ошибка скачивания аудио: {e}")
+                user_text = "(отправила голосовое/кружок, не удалось скачать)"
+        else:
+            user_text = "[Медиа/Стикер]"
 
     LAST_DIALOG_INFO["chat_id"] = chat_id
     LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
@@ -225,7 +266,7 @@ async def auto_initiative_loop(app):
     await asyncio.sleep(20)
 
     while True:
-        await asyncio.sleep(180) # Проверка каждые 3 минуты
+        await asyncio.sleep(180)
 
         chat_id = LAST_DIALOG_INFO["chat_id"]
         business_conn_id = LAST_DIALOG_INFO["business_connection_id"]
@@ -237,7 +278,6 @@ async def auto_initiative_loop(app):
         now = get_msk_now()
         minutes_passed = (now - last_activity).total_seconds() / 60.0
 
-        # Если молчите больше 40 минут — пишем первым
         if minutes_passed >= 40.0:
             try:
                 history = CHAT_HISTORY.get(chat_id, [])
@@ -275,7 +315,6 @@ async def auto_initiative_loop(app):
                     CHAT_HISTORY[chat_id] = []
                 CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
                 
-                # Обновляем время активности, чтобы не спамил каждые 3 минуты
                 LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
             except Exception as e:
