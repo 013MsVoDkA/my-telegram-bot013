@@ -2,7 +2,6 @@ import logging
 import os
 import random
 import asyncio
-import re
 import requests
 from telegram import Update, ReactionTypeEmoji
 from telegram.ext import (
@@ -22,13 +21,12 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 
 # 🎭 БАЗА СТИКЕРОВ С ID
 STICKERS_MAP = {
-    "1": "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
-    "2": "CAACAgIAAxkBAAEtwxpqhaFrrP0wRzZePLFtBik6xr23LgAC6BcAAowL2UiiSqB-xZy1vD0E",
-    "3": "CAACAgIAAxkBAAEtw6lqha2LcFzVrwmc-bPkyi7mlZTiaAAC8hMAAtfP8Ur1tJ_0V1OnzT0E",
-}
+    "1": "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ"
+ }
+
 
 # ❤️ СПИСОК РЕАКЦИЙ
-POSSIBLE_REACTIONS = ["❤️"]
+POSSIBLE_REACTIONS = ["❤️", "❤️‍🔥"]
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -38,7 +36,7 @@ logging.basicConfig(
 CHAT_HISTORY = {}
 
 # ============================================================
-# 🧠 ПСИХОТИП И СТИЛЬ ФИЛА (ТВОЙ ЛЮБИМЫЙ ПРОМПТ)
+# 🧠 ПСИХОТИП И СТИЛЬ ФИЛА
 # ============================================================
 
 FIL_SYSTEM_PROMPT = """
@@ -87,7 +85,7 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.75,
+        "temperature": 0.7,
         "max_tokens": 120,
     }
 
@@ -119,35 +117,32 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
 
     try:
-        # Реакция ❤️ с шансом 50%
+        # Ставим реакцию с вероятностью 50%
         if random.choice([True, False]):
-            await asyncio.sleep(random.uniform(0.3, 0.8))
+            await asyncio.sleep(random.uniform(0.5, 1.5))
+            chosen_reaction = random.choice(POSSIBLE_REACTIONS)
             try:
                 await context.bot.set_message_reaction(
                     chat_id=chat_id,
                     message_id=msg.message_id,
-                    reaction=[ReactionTypeEmoji(emoji=random.choice(POSSIBLE_REACTIONS))],
+                    reaction=[ReactionTypeEmoji(emoji=chosen_reaction)],
                 )
             except Exception as rx_err:
                 print("Ошибка при установке реакции:", rx_err)
 
-        # Быстрая пауза перед прочитанием (0.8 - 1.5 сек)
-        await asyncio.sleep(random.uniform(0.8, 1.5))
+        # Пауза перед "прочтением" и ответом (1.0 - 2.5 сек)
+        await asyncio.sleep(random.uniform(1.0, 2.5))
 
         raw_answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id]).strip()
+
+        # Полностью удаляем переносы строк и режем строго по |||
         clean_raw = raw_answer.replace("\n", " ")
-
-        # Режем строго по |||, а если забыл — страховочно по точкам
-        if "|||" in clean_raw:
-            raw_parts = clean_raw.split("|||")
-        else:
-            raw_parts = re.split(r'(?<=[.!?]) +', clean_raw)
-
-        messages_to_send = [p.strip() for p in raw_parts if p.strip()]
+        messages_to_send = [part.strip() for part in clean_raw.split("|||") if part.strip()]
 
         full_assistant_reply = ""
 
         for part_text in messages_to_send:
+            # Ищем стикер
             sticker_to_send = None
             for key, sticker_id in STICKERS_MAP.items():
                 tag = f"[STICKER:{key}]"
@@ -158,17 +153,17 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not part_text and not sticker_to_send:
                 continue
 
-            # Тайпинг
+            # Имитация печати
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
                 business_connection_id=msg.business_connection_id
             )
             
-            # Быстрый набор текста
-            typing_time = max(0.4, len(part_text) * 0.05)
-            await asyncio.sleep(min(typing_time, 1.5))
+            typing_time = max(0.5, len(part_text) * 0.07)
+            await asyncio.sleep(min(typing_time, 2.0))
 
+            # Отправка текстовой реплики
             if part_text:
                 await context.bot.send_message(
                     chat_id=chat_id,
@@ -177,16 +172,17 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 full_assistant_reply += part_text + " "
 
+            # Отправка стикера
             if sticker_to_send:
-                await asyncio.sleep(0.3)
+                await asyncio.sleep(0.4)
                 await context.bot.send_sticker(
                     chat_id=chat_id,
                     sticker=sticker_to_send,
                     business_connection_id=msg.business_connection_id,
                 )
 
-            # Быстрый интервал между облачками (0.3 - 0.7 сек)
-            await asyncio.sleep(random.uniform(0.3, 0.7))
+            # Быстрый интервал между сообщениями (0.4 - 1.0 сек)
+            await asyncio.sleep(random.uniform(0.4, 1.0))
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
 
