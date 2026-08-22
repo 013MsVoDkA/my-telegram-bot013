@@ -175,20 +175,22 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         full_assistant_reply = ""
 
         # 📸 Шанс 10% отправить случайное фото перед текстом
-if PHOTO_URLS and random.random() < 0.10:
-    photo_url = random.choice(PHOTO_URLS)
-    try:
-        # Скачиваем фото в память перед отправкой, чтобы TG отобразил его во весь экран
-        img_bytes = requests.get(photo_url).content
-        await context.bot.send_photo(
-            chat_id=chat_id,
-            photo=img_bytes,
-            business_connection_id=business_connection_id
-        )
-        await asyncio.sleep(random.uniform(2.0, 4.0))
-    except Exception as p_err:
-        print("⚠️ Ошибка отправки фото:", p_err)
-
+# 📸 Шанс отправки фото
+        if PHOTO_URLS and random.random() < 0.10:
+            photo_url = random.choice(PHOTO_URLS)
+            try:
+                # Скачиваем файл в память напрямую, чтобы Telegram не сжимал его в микро-превью
+                resp = requests.get(photo_url, timeout=10)
+                if resp.status_code == 200:
+                    img_bytes = resp.content
+                    await context.bot.send_photo(
+                        chat_id=chat_id,
+                        photo=img_bytes,
+                        business_connection_id=business_connection_id
+                    )
+                    await asyncio.sleep(random.uniform(2.0, 4.0))
+            except Exception as p_err:
+                print("⚠️ Ошибка отправки фото:", p_err)
         for part_text in messages_to_send:
             if not part_text:
                 continue
