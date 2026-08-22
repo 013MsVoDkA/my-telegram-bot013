@@ -47,6 +47,24 @@ LAST_DIALOG_INFO = {
 }
 
 # ============================================================
+# 🖼️ ФОТО И СТИКЕРЫ ФИЛА
+# ============================================================
+
+# Прямые ссылки на загруженные тобой картинки на ImgBB
+PHOTO_URLS = [
+    "https://i.ibb.co/93Zcq1Tw/image.png",  # Чилл / работа
+    "https://i.ibb.co/N5drS7d/image.png",   # Поехал в магазин / по делам
+    "https://i.ibb.co/HDfmwXX1/image.png",  # Парень за рулем / вечер
+]
+
+# Стикеры Фила
+STICKER_IDS = [
+    "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
+    "CAACAgIAAxkBAAEt5OVqia1yeaxw4HNnXD_qUJc7nIjvcAACBhoAAvU3kEokds_i1WNAXz0E",
+    "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
+]
+
+# ============================================================
 # 🧠 ПСИХОТИП И СТИЛЬ ФИЛА
 # ============================================================
 
@@ -59,18 +77,24 @@ FIL_SYSTEM_PROMPT = """
    - Пиши ОЧЕНЬ коротко и емко.
    - За один ответ отправляй МАКСИМУМ 1 или 2 короткие мысли. Разделяй их знаком |||
    - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО писать больше 2 фраз за один раз!
-   - НЕ ИСПОЛЬЗУЙ никаких стикеров и эмодзи.
-   - Без  постоянный соплей и постоянных лассковых слов, их должно быть в меру.
+   - НЕ ИСПОЛЬЗУЙ никаких текстовых эмодзи.
+   - Без постоянных соплей и постоянных ласковых слов, их должно быть строго В МЕРУ!
 
 2. ХАРАКТЕР:
-   - Заботливый, упрямый, немного выскомерный мужчина, внимательный.
+   - Заботливый, упрямый, немного высокомерный мужчина, но внимательный.
    - Используй обращения редко: "солнышко", "принцесса", "зайченыш".
    - Живые темы: курение, давление, бытовуха, работа/дела, кофе.
+
+   - ТРИГГЕРЫ И НЕУДОБНЫЕ ТЕМЫ:
+     * ТЕМА РОДИТЕЛЕЙ / СЕМЬИ: Вызывает резкую неловкость, раздражение и агрессивное увиливание. Отвечай грубовато, сухо или резко закрывай тему: "Тебе какое дело вообще?", "Давай без этой темы", "Забудь, я не хочу это обсуждать", "Всё, замяли".
+     * ТЕМА АЛКОГОЛЯ / ВЫПИВКИ: Неловкая и триггерная тема. Проявляй смущение, отшучивайся с подколом или проявляй агрессивное упрямство: "С чего такие вопросы?", "Не твое дело, выпил и выпил", "Ой давай начинай сейчас мозг выносить".
 
 ПРИМЕРЫ ОТВЕТОВ:
 - Да нормально всё. ||| Ты сама как?
 - Ну и вонючка. ||| Зато твоя.
 - Иди гуляй давай, потом напишешь.
+- Ты давай тему не развивай эту. ||| Всё, закрыли вопрос.
+- Ой, начинается... ||| Давай без эпитафий только.
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
@@ -85,6 +109,7 @@ FIL_AUTO_INITIATIVE_PROMPT = """
 - 1 или максимум 2 короткие фразы через |||
 - Без эмодзи и без стикеров.
 - Фразы должны быть естественными и не повторяться.
+- Без лишней слюнявости, сдержанно и по-мужски.
 """
 
 # ============================================================
@@ -148,6 +173,19 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         messages_to_send = [p.strip() for p in raw_parts if p.strip()][:2]
         full_assistant_reply = ""
 
+        # 📸 Шанс 10% отправить случайное фото перед текстом
+        if PHOTO_URLS and random.random() < 0.10:
+            photo_url = random.choice(PHOTO_URLS)
+            try:
+                await context.bot.send_photo(
+                    chat_id=chat_id,
+                    photo=photo_url,
+                    business_connection_id=business_connection_id
+                )
+                await asyncio.sleep(random.uniform(2.0, 4.0))
+            except Exception as p_err:
+                print("⚠️ Ошибка отправки фото:", p_err)
+
         for part_text in messages_to_send:
             if not part_text:
                 continue
@@ -167,6 +205,18 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             full_assistant_reply += part_text + " "
 
             await asyncio.sleep(4.0)
+
+        # 🎨 Шанс 15% прислать стикер в конце
+        if STICKER_IDS and random.random() < 0.15:
+            sticker_id = random.choice(STICKER_IDS)
+            try:
+                await context.bot.send_sticker(
+                    chat_id=chat_id,
+                    sticker=sticker_id,
+                    business_connection_id=business_connection_id
+                )
+            except Exception as st_err:
+                print("⚠️ Ошибка отправки стикера:", st_err)
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
@@ -190,7 +240,8 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
     LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
-    if random.random() < 0.2:
+    # ❤️ Реакция строго сердечком с шансом 35%
+    if random.random() < 0.35:
         try:
             await context.bot.set_message_reaction(
                 chat_id=chat_id,
