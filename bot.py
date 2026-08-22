@@ -1,14 +1,10 @@
-Готово! Убрал стикеры 2 и 3 — теперь в базе остался **только 1-й стикер**, а в правилах бота и обработчике кода прописана работа исключительно с ним.
-
-Обнови код в `bot.py` на GitHub:
-
-```python
 import logging
 import os
 import random
 import asyncio
 import re
 import requests
+from aiohttp import web
 from telegram import Update, ReactionTypeEmoji
 from telegram.ext import (
     ApplicationBuilder,
@@ -24,8 +20,8 @@ from telegram.ext import (
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+PORT = int(os.environ.get("PORT", 8080))
 
-# 🎭 БАЗА СТИКЕРОВ С ID (ТОЛЬКО 1-Й СТИКЕР)
 STICKERS_MAP = {
     "1": "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
 }
@@ -101,7 +97,6 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     else:
         raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
 
-
 # ============================================================
 # 💼 BUSINESS MESSAGE
 # ============================================================
@@ -121,7 +116,6 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
 
     try:
-        # Реакция ❤️ с шансом 50%
         if random.choice([True, False]):
             await asyncio.sleep(random.uniform(0.3, 0.8))
             try:
@@ -150,7 +144,6 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for part_text in messages_to_send:
             sticker_to_send = None
 
-            # Ищем только [STICKER:1]
             match = re.search(r'\[STICKER:1\]', part_text)
             if match:
                 sticker_to_send = STICKERS_MAP.get("1")
@@ -159,7 +152,6 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not part_text and not sticker_to_send:
                 continue
 
-            # Тайпинг
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
@@ -209,8 +201,21 @@ async def handle_business_connection(update: Update, context: ContextTypes.DEFAU
     if update.business_connection:
         print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
 
+# Микро-сервер для Render
+async def handle_ping(request):
+    return web.Response(text="Bot is live!")
 
-if __name__ == "__main__":
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get("/", handle_ping)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", PORT)
+    await site.start()
+
+async def main():
+    await start_web_server()
+
     app = (
         ApplicationBuilder()
         .token(TELEGRAM_BOT_TOKEN)
@@ -224,13 +229,18 @@ if __name__ == "__main__":
     app.add_handler(TypeHandler(Update, handle_business), group=-1)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_direct))
 
-    app.run_polling(
-        allowed_updates=[
-            "message",
-            "business_message",
-            "business_connection",
-            "edited_business_message",
-        ]
-    )
+    async with app:
+        await app.initialize()
+        await app.start()
+        await app.updater.start_polling(
+            allowed_updates=[
+                "message",
+                "business_message",
+                "business_connection",
+                "edited_business_message",
+            ]
+        )
+        await asyncio.Event().wait()
 
-```
+if __name__ == "__main__":
+    asyncio.run(main())
