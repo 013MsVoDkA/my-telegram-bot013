@@ -4,7 +4,7 @@ import random
 import asyncio
 import re
 import requests
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from aiohttp import web
 from telegram import Update, ReactionTypeEmoji
 from telegram.ext import (
@@ -22,6 +22,12 @@ from telegram.ext import (
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
+
+# Часовой пояс Москва (UTC+3)
+MSK_TZ = timezone(timedelta(hours=3))
+
+def get_msk_now():
+    return datetime.now(MSK_TZ)
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -56,7 +62,7 @@ FIL_SYSTEM_PROMPT = """
    - НЕ ИСПОЛЬЗУЙ никаких стикеров и эмодзи.
 
 2. ХАРАКТЕР:
-   - Заботливый, упрямый, знающий себе цену мужчина, немного прямолинейный.
+   - Заботливый, упрямый, немного выскомерный мужчина.
    - Используй обращения редко: "солнышко", "принцесса", "зайченыш".
    - Живые темы: курение, давление, бытовуха, работа/дела, кофе.
 
@@ -162,7 +168,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             await asyncio.sleep(4.0)
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
-        LAST_DIALOG_INFO["last_activity"] = datetime.now()
+        LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
     except Exception as e:
         print("\n❌ ОШИБКА BUSINESS:", repr(e))
@@ -181,7 +187,7 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     LAST_DIALOG_INFO["chat_id"] = chat_id
     LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
-    LAST_DIALOG_INFO["last_activity"] = datetime.now()
+    LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
     if random.random() < 0.2:
         try:
@@ -205,14 +211,13 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # ============================================================
-# ⏰ АВТО-ИНИЦИАТИВА (ДЕНЬ, УТРО, НОЧЬ)
+# ⏰ АВТО-ИНИЦИАТИВА
 # ============================================================
 
 async def auto_initiative_loop(app):
     await asyncio.sleep(30)
 
     while True:
-        # Проверяем состояние каждые 5 минут
         await asyncio.sleep(300)
 
         chat_id = LAST_DIALOG_INFO["chat_id"]
@@ -222,11 +227,10 @@ async def auto_initiative_loop(app):
         if not chat_id or not business_conn_id or not last_activity:
             continue
 
-        now = datetime.now()
+        now = get_msk_now()
         minutes_passed = (now - last_activity).total_seconds() / 60.0
         current_hour = now.hour
 
-        # Сброс флагов утра/ночи в течение суток
         if current_hour == 12:
             LAST_DIALOG_INFO["said_morning"] = False
         if current_hour == 16:
@@ -240,11 +244,11 @@ async def auto_initiative_loop(app):
             LAST_DIALOG_INFO["said_morning"] = True
 
         # 2. Ночной триггер (22:30–00:00)
-        elif 22 <= current_hour or current_hour < 1 and not LAST_DIALOG_INFO["said_night"] and minutes_passed >= 45:
+        elif (22 <= current_hour or current_hour < 1) and not LAST_DIALOG_INFO["said_night"] and minutes_passed >= 45:
             should_send = True
             LAST_DIALOG_INFO["said_night"] = True
 
-        # 3. Дневной триггер (35+ минут молчания с 10:30 до 22:30)
+        # 3. Дневной триггер (35+ минут молчания)
         elif 10 < current_hour < 22 and minutes_passed >= 35.0:
             should_send = True
 
@@ -285,7 +289,7 @@ async def auto_initiative_loop(app):
                     CHAT_HISTORY[chat_id] = []
                 CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
                 
-                LAST_DIALOG_INFO["last_activity"] = datetime.now()
+                LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
             except Exception as e:
                 print("❌ Ошибка авто-инициативы:", e)
