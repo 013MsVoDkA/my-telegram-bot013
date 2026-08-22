@@ -101,7 +101,7 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.85, # чуть выше креативность и вариативность
+        "temperature": 0.85,
         "max_tokens": 150,
     }
 
@@ -134,7 +134,7 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое сообщение)"
 
 def split_text_into_messages(raw_text: str) -> list:
-    """Динамическое разделение ответа: от 1 до 5 сообщений рандомно"""
+    """Динамическое разделение ответа: от 1 до 4 сообщений рандомно"""
     clean_raw = raw_text.replace("\n", " ")
     
     if "|||" in clean_raw:
@@ -142,13 +142,11 @@ def split_text_into_messages(raw_text: str) -> list:
     else:
         sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_raw) if s.strip()]
         if len(sentences) > 2 and random.random() < 0.5:
-            # Рандомно режем на части, если предложений много
             mid = len(sentences) // 2
             parts = [" ".join(sentences[:mid]), " ".join(sentences[mid:])]
         else:
             parts = [clean_raw]
 
-    # Ограничиваем максимум до 4 сообщений за раз, чтобы не спамил портянками
     parts = parts[:4]
 
     formatted_parts = []
@@ -164,8 +162,8 @@ def split_text_into_messages(raw_text: str) -> list:
     return formatted_parts
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    delay_seconds = random.uniform(20.0, 90.0)
-    await asyncio.sleep(delay_seconds)
+    # Начальная пауза перед тем как вообще начать "читать" и "думать" (от 3 до 8 секунд)
+    await asyncio.sleep(random.uniform(3.0, 8.0))
 
     data = PENDING_MESSAGES.pop(chat_id, {})
     PENDING_TASKS.pop(chat_id, None)
@@ -187,14 +185,23 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         messages_to_send = split_text_into_messages(raw_answer)
         full_assistant_reply = ""
 
-        for part_text in messages_to_send:
+        for i, part_text in enumerate(messages_to_send):
+            # Рассчитываем время печати в зависимости от длины текста 
+            # (примерно скорость печати человека + рандом)
+            char_count = len(part_text)
+            typing_duration = max(1.5, min(char_count * 0.08, 6.0)) + random.uniform(0.5, 1.5)
+
+            # Включаем статус "печатает..."
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
                 business_connection_id=business_connection_id
             )
-            await asyncio.sleep(random.uniform(2.0, 4.0))
+            
+            # Ждем этот промежуток времени, имитируя процесс набора текста
+            await asyncio.sleep(typing_duration)
 
+            # Отправляем кусок сообщения
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=part_text,
@@ -202,9 +209,13 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             )
             full_assistant_reply += part_text + " "
 
-            await asyncio.sleep(random.uniform(1.5, 3.0))
+            # Если будет еще одно сообщение следом, делаем небольшую паузу между ними (как будто думает над след. фразой)
+            if i < len(messages_to_send) - 1:
+                await asyncio.sleep(random.uniform(1.5, 3.5))
 
+        # Иногда может отправить стикер вдогонку
         if STICKER_IDS and random.random() < 0.15:
+            await asyncio.sleep(random.uniform(1.0, 2.0))
             sticker_id = random.choice(STICKER_IDS)
             try:
                 await context.bot.send_sticker(
@@ -288,13 +299,16 @@ async def auto_initiative_loop(app):
                 messages_to_send = split_text_into_messages(raw_answer)
                 full_assistant_reply = ""
 
-                for part_text in messages_to_send:
+                for i, part_text in enumerate(messages_to_send):
+                    char_count = len(part_text)
+                    typing_duration = max(1.5, min(char_count * 0.08, 6.0)) + random.uniform(0.5, 1.5)
+
                     await app.bot.send_chat_action(
                         chat_id=chat_id, 
                         action="typing", 
                         business_connection_id=business_conn_id
                     )
-                    await asyncio.sleep(random.uniform(2.0, 4.0))
+                    await asyncio.sleep(typing_duration)
 
                     await app.bot.send_message(
                         chat_id=chat_id,
@@ -302,7 +316,9 @@ async def auto_initiative_loop(app):
                         business_connection_id=business_conn_id,
                     )
                     full_assistant_reply += part_text + " "
-                    await asyncio.sleep(2.0)
+                    
+                    if i < len(messages_to_send) - 1:
+                        await asyncio.sleep(random.uniform(1.5, 3.0))
 
                 if chat_id not in CHAT_HISTORY:
                     CHAT_HISTORY[chat_id] = []
