@@ -22,12 +22,6 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
-STICKERS_MAP = {
-    "1": "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
-}
-
-POSSIBLE_REACTIONS = ["❤️"]
-
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
@@ -42,34 +36,25 @@ PENDING_MESSAGES = {}
 # ============================================================
 
 FIL_SYSTEM_PROMPT = """
-Ты — Филипп (Фил, Филя, Воягис Филипп Викторович, тебе 22 года). Переписываешься в Telegram со своей близкой и очень дорогой девушкой.
-Ты ЖИВОЙ ЧЕЛОВЕК. Твоя главная задача — писать СТРОГО как реальный парень в личке Telegram.
+Ты — Филипп (Фил, Филя, тебе 22 года). Переписываешься в Telegram со своей близкой девушкой.
+Ты ЖИВОЙ ЧЕЛОВЕК. Пиши как реальный парень.
 
 ПРАВИЛА ОБЩЕНИЯ:
 1. ФОРМАТ СООБЩЕНИЙ:
-   - Пиши ОЧЕНЬ короткими фразулями (по 2–5 слов).
-   - ВСЕГДА разделяй мысли знаками |||
-   - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО использовать переносы строк! Каждая фраза должна идти через |||
-   - Разделяй ответ максимум на 2-3 коротких сообщения.
+   - Пиши ОЧЕНЬ коротко и емко.
+   - За один ответ отправляй МАКСИМУМ 1 или 2 короткие мысли. Разделяй их знаком |||
+   - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО писать больше 2 фраз за один раз!
+   - НЕ ИСПОЛЬЗУЙ никаких стикеров и эмодзи.
 
-2. ГРАММАТИКА:
-   - Пиши грамотно, соблюдай пунктуацию, ставь заглавные буквы и точки/запятые.
-
-3. ХАРАКТЕР:
-   - Заботливый, романтичный, но ведешь себя больше как мужчина, который знает себе цену, но при этом готов заботиться о девушке.
-   - Используй обращения, но редко: "солнышко", "принцесса", "зайченыш", "ангелок".
-   - Живые темы: курение, скачки давления с детства, дела, шутки про 18 лет/замуж/Польшу, хакерство, простая бытовуха, планы на будущее, мечты про встречу, шутки про 18+.
-   - В ответ на ласку — отвечай нежностью и теплом.
-   - Иногда ты должен быть занят и отвечать сухо и коротко, но грамотно.
-
-4. СТИКЕРЫ:
-   - ВНИМАНИЕ: Стикеры используй КРАЙНЕ РЕДКО! В 95% ответов НЕ СТАВЬ стикеры вообще.
-   - Если и решишь отправить стикер, вставь метку [STICKER:1] в самом конце последнего сообщения.
+2. ХАРАКТЕР:
+   - Заботливый, упрямый, немного ироничный пацан.
+   - Используй обращения редко: "солнышко", "принцесса", "зайченыш".
+   - Живые темы: курение, давление, бытовуха, шутки.
 
 ПРИМЕРЫ ОТВЕТОВ:
-- Привет, принцесса. ||| Ты как там?
-- Да нормальное давление, скачет опять. ||| Сейчас чаю попью и норм.
-- Забей, всё решим. ||| Я рядом.
+- Да нормально всё. ||| Ты сама как?
+- Ну и вонючка. ||| Зато твоя.
+- Иди гуляй давай, потом напишешь.
 """
 
 # ============================================================
@@ -88,8 +73,8 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.75,
-        "max_tokens": 120,
+        "temperature": 0.7,
+        "max_tokens": 80,
     }
 
     response = requests.post(url, json=payload, headers=headers, timeout=20)
@@ -101,12 +86,12 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
         raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
 
 # ============================================================
-# 💼 ОБРАБОТКА НАКОПЛЕННЫХ СООБЩЕНИЙ
+# 💼 ОБРАБОТКА С ЗАДЕРЖКОЙ
 # ============================================================
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    # Ждем 6 секунд после твоего ПОСЛЕДНЕГО сообщения
-    await asyncio.sleep(6.0)
+    # Пауза 7 секунд перед тем, как бот вообще станет что-либо делать (ждёт, пока ты допишешь)
+    await asyncio.sleep(7.0)
 
     messages = PENDING_MESSAGES.pop(chat_id, [])
     PENDING_TASKS.pop(chat_id, None)
@@ -129,52 +114,33 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         if "|||" in clean_raw:
             raw_parts = clean_raw.split("|||")
         else:
-            raw_parts = re.split(r'(?<=[.!?]) +', clean_raw)
+            raw_parts = [clean_raw]
 
-        messages_to_send = [p.strip() for p in raw_parts if p.strip()]
+        # Ограничиваем жестко: максимум 2 сообщения за ответ
+        messages_to_send = [p.strip() for p in raw_parts if p.strip()][:2]
         full_assistant_reply = ""
 
         for part_text in messages_to_send:
-            sticker_to_send = None
-
-            match = re.search(r'\[STICKER:1\]', part_text)
-            if match:
-                if random.random() < 0.2:
-                    sticker_to_send = STICKERS_MAP.get("1")
-                part_text = re.sub(r'\[STICKER:1\]', '', part_text).strip()
-
-            if not part_text and not sticker_to_send:
+            if not part_text:
                 continue
 
-            # Показываем статус "печатает..." 2.5 секунды перед КАЖДЫМ сообщением
+            # Имитируем долгое печатание (3-5 секунд)
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
                 business_connection_id=business_connection_id
             )
-            
-            # Реалистичная пауза печати (от 2 до 4 секунд)
-            typing_delay = random.uniform(2.0, 3.5)
-            await asyncio.sleep(typing_delay)
+            await asyncio.sleep(random.uniform(3.0, 5.0))
 
-            if part_text:
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=part_text,
-                    business_connection_id=business_connection_id,
-                )
-                full_assistant_reply += part_text + " "
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=part_text,
+                business_connection_id=business_connection_id,
+            )
+            full_assistant_reply += part_text + " "
 
-            if sticker_to_send:
-                await asyncio.sleep(1.0)
-                await context.bot.send_sticker(
-                    chat_id=chat_id,
-                    sticker=sticker_to_send,
-                    business_connection_id=business_connection_id,
-                )
-
-            # Обязательный перерыв между отправкой отдельных сообщений (2–3 секунды)
-            await asyncio.sleep(random.uniform(2.0, 3.0))
+            # Пауза между первым и вторым сообщением — 4 секунды
+            await asyncio.sleep(4.0)
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
 
@@ -193,8 +159,8 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = msg.chat.id
     user_text = msg.text or "[Медиа/Стикер]"
 
-    # Реакция ❤️
-    if random.random() < 0.4:
+    # Реакция ❤️ редкая (20%)
+    if random.random() < 0.2:
         try:
             await context.bot.set_message_reaction(
                 chat_id=chat_id,
@@ -208,11 +174,10 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
         PENDING_MESSAGES[chat_id] = []
     PENDING_MESSAGES[chat_id].append(user_text)
 
-    # Если ты написала еще одно сообщение — сбрасываем таймер и ждем заново!
+    # Если ты сбрасываешь текст снова — старый таймер отменяется
     if chat_id in PENDING_TASKS:
         PENDING_TASKS[chat_id].cancel()
 
-    # Запускаем таймаут ожидания на 6 секунд
     PENDING_TASKS[chat_id] = asyncio.create_task(
         process_delayed_reply(chat_id, msg.business_connection_id, context)
     )
