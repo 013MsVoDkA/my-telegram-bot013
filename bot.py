@@ -146,8 +146,34 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         print(f"⚠️ Ошибка сети при транскрипции: {e}")
         return "(отправила голосовое/кружок, произошла ошибка транскрипции)"
 
+async def determine_delay_by_context(history: list) -> float:
+    """Оценивает контекст и определяет паузу перед ответом"""
+    prompt = """
+    Проанализируй последние сообщения Фила (assistant) и его девушки (user).
+    Определи, насколько Фил сейчас занят, и выбери цифру от 1 до 3:
+    1 — Свободен или просто общается (дома, отдыхает, кушает, стоит в пробке, сидит в кафе).
+    2 — Умерено занят (за рулем, на прогулке, делает бытовые дела).
+    3 — Очень занят или тусуется (на работе, в баре, на квартире с друзьями).
+
+    Ответь ТОЛЬКО одной цифрой: 1, 2 или 3.
+    """
+    try:
+        level_str = ask_ai(prompt, history[-5:]).strip()
+        if "1" in level_str:
+            return random.uniform(45.0, 600.0)    # 45 сек - 10 мин
+        elif "3" in level_str:
+            return random.uniform(1200.0, 2700.0) # 20 мин - 45 мин
+        else:
+            return random.uniform(600.0, 1200.0)  # 10 мин - 20 мин
+    except Exception as e:
+        print("⚠️ Ошибка определения контекста задержки:", e)
+        return random.uniform(180.0, 600.0)
+
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    delay_seconds = random.uniform(45.0, 1200.0)
+    history = CHAT_HISTORY.get(chat_id, [])
+    delay_seconds = await determine_delay_by_context(history)
+    
+    print(f"⏳ Динамическая задержка рассчитана: {int(delay_seconds // 60)} мин {int(delay_seconds % 60)} сек")
     await asyncio.sleep(delay_seconds)
 
     data = PENDING_MESSAGES.pop(chat_id, {})
@@ -228,7 +254,6 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.business_message
     chat_id = msg.chat.id
     
-    # Обработка текста, голосовых и кружочков
     user_text = msg.text
 
     if not user_text:
