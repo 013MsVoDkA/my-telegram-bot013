@@ -32,11 +32,12 @@ CHAT_HISTORY = {}
 PENDING_TASKS = {}
 PENDING_MESSAGES = {}
 
-# Храним информацию о последнем активном диалоге
 LAST_DIALOG_INFO = {
     "chat_id": None,
     "business_connection_id": None,
-    "last_activity": None
+    "last_activity": None,
+    "said_morning": False,
+    "said_night": False
 }
 
 # ============================================================
@@ -57,7 +58,7 @@ FIL_SYSTEM_PROMPT = """
 2. ХАРАКТЕР:
    - Заботливый, упрямый, немного ироничный пацан.
    - Используй обращения редко: "солнышко", "принцесса", "зайченыш".
-   - Живые темы: курение, давление, бытовуха, шутки.
+   - Живые темы: курение, давление, бытовуха, работа/дела, кофе.
 
 ПРИМЕРЫ ОТВЕТОВ:
 - Да нормально всё. ||| Ты сама как?
@@ -66,14 +67,17 @@ FIL_SYSTEM_PROMPT = """
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
-Ты — Филипп. Ты сам решил написать своей девушке первым спустя время молчания.
-Напиши 1 или максимум 2 короткие фразы (через |||).
-Спроси как она, чем занята, или просто напиши, что соскучился / вышел покурить / освободился.
-Без эмодзи и без стикеров.
-Примеры:
-- Ты как там? ||| Соскучился что-то.
-- Чем занимаешься?
-- Вышел покурить, вспомнил про тебя. ||| Отзовись.
+Ты — Филипп. Вы не переписывались с девушкой некоторое время. Напиши ей первым.
+Учти контекст времени и ситуации:
+
+- Если УТРО: пожелай доброго утра или спроси как спалось ("Доброе утро, принцесса", "Спишь еще?").
+- Если ВЕЧЕР/НОЧЬ: спроси ложится ли спать или пожелай спокойной ночи ("Спать собираешься?", "Сладких снов").
+- В ДНЕВНОЕ ВРЕМЯ: напиши жизненную причину ("Наконец разгреб запара", "Сделал себе кофе", "Вышел покурить, вспомнил про тебя", "Чем занята?").
+
+ПРАВИЛА:
+- 1 или максимум 2 короткие фразы через |||
+- Без эмодзи и без стикеров.
+- Фразы должны быть естественными и не повторяться.
 """
 
 # ============================================================
@@ -92,7 +96,7 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.75,
+        "temperature": 0.85,
         "max_tokens": 80,
     }
 
@@ -175,7 +179,6 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = msg.chat.id
     user_text = msg.text or "[Медиа/Стикер]"
 
-    # Сохраняем информацию для авто-сообщений
     LAST_DIALOG_INFO["chat_id"] = chat_id
     LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
     LAST_DIALOG_INFO["last_activity"] = datetime.now()
@@ -202,15 +205,15 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # ============================================================
-# ⏰ АВТО-ИНИЦИАТИВА (Бот пишет первым)
+# ⏰ АВТО-ИНИЦИАТИВА (ДЕНЬ, УТРО, НОЧЬ)
 # ============================================================
 
 async def auto_initiative_loop(app):
-    await asyncio.sleep(30) # Пауза при запуске бота
+    await asyncio.sleep(30)
 
     while True:
-        # Проверяем каждые 30 минут
-        await asyncio.sleep(1800)
+        # Проверяем состояние каждые 5 минут
+        await asyncio.sleep(300)
 
         chat_id = LAST_DIALOG_INFO["chat_id"]
         business_conn_id = LAST_DIALOG_INFO["business_connection_id"]
@@ -220,15 +223,32 @@ async def auto_initiative_loop(app):
             continue
 
         now = datetime.now()
-        hours_passed = (now - last_activity).total_seconds() / 3600.0
-
-        # Не пишем ночью (с 23:00 до 08:00)
+        minutes_passed = (now - last_activity).total_seconds() / 60.0
         current_hour = now.hour
-        if current_hour >= 23 or current_hour < 8:
-            continue
 
-        # Если молчите больше 3.5 часов — пишем с вероятностью 60%
-        if hours_passed >= 3.5 and random.random() < 0.6:
+        # Сброс флагов утра/ночи в течение суток
+        if current_hour == 12:
+            LAST_DIALOG_INFO["said_morning"] = False
+        if current_hour == 16:
+            LAST_DIALOG_INFO["said_night"] = False
+
+        should_send = False
+
+        # 1. Утренний триггер (8:00–10:30)
+        if 8 <= current_hour <= 10 and not LAST_DIALOG_INFO["said_morning"] and minutes_passed >= 60:
+            should_send = True
+            LAST_DIALOG_INFO["said_morning"] = True
+
+        # 2. Ночной триггер (22:30–00:00)
+        elif 22 <= current_hour or current_hour < 1 and not LAST_DIALOG_INFO["said_night"] and minutes_passed >= 45:
+            should_send = True
+            LAST_DIALOG_INFO["said_night"] = True
+
+        # 3. Дневной триггер (35+ минут молчания с 10:30 до 22:30)
+        elif 10 < current_hour < 22 and minutes_passed >= 35.0:
+            should_send = True
+
+        if should_send:
             try:
                 history = CHAT_HISTORY.get(chat_id, [])
                 raw_answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history).strip()
@@ -265,7 +285,6 @@ async def auto_initiative_loop(app):
                     CHAT_HISTORY[chat_id] = []
                 CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
                 
-                # Обновляем таймер активности
                 LAST_DIALOG_INFO["last_activity"] = datetime.now()
 
             except Exception as e:
@@ -314,7 +333,6 @@ async def main():
     app.add_handler(TypeHandler(Update, handle_business), group=-1)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_direct))
 
-    # Запускаем фоновый таймер авто-сообщений
     asyncio.create_task(auto_initiative_loop(app))
 
     async with app:
