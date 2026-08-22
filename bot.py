@@ -2,6 +2,7 @@ import logging
 import os
 import random
 import asyncio
+import re
 import requests
 import httpx
 from datetime import datetime, timezone, timedelta
@@ -55,7 +56,7 @@ STICKER_IDS = [
 ]
 
 # ============================================================
-# 🧠 ИДЕАЛЬНЫЙ ПРОМПТ ФИЛА (С БОЛЬШОЙ БУКВЫ И С ТОЧКАМИ)
+# 🧠 ПРОМПТ ФИЛА
 # ============================================================
 
 FIL_SYSTEM_PROMPT = """
@@ -66,12 +67,12 @@ FIL_SYSTEM_PROMPT = """
 2. Используй ласковые обращения: "зай", "солнышко", "котёнок", "принцесса", "малышка".
 3. Делись простыми жизненными мелочами (кофе сделал, машину помыл, зашёл в магазин). 
 
-📝 ПРАВИЛА ОФОРМЛЕНИЯ И ДЛИНЫ:
+📝 ПРАВИЛА ОФОРМЛЕНИЯ:
 1. ВСЕГДА пиши с большой буквы в начале каждого предложения.
-2. ВСЕГДА ставь точку в конце каждого предложения. Никаких сообщений без точек!
-3. Пиши умеренно (не спамь кучей мелких сообщений). Длинные подробные ответы пиши ОЧЕНЬ РЕДКО, только если тема реально важная.
+2. ВСЕГДА ставь точку в конце каждого предложения.
+3. Обязательно делай 2 раздельных коротких сообщения! Разделяй их знаками |||
+Пример: "Зай, ты как? ||| Я только домой пришел."
 4. Никаких эмодзи и смайликов.
-5. Если хочешь отправить две мысли подряд, разделяй их через |||
 
 🚨 ОГРАНИЧЕНИЯ ДИСТАНЦИИ:
 - Вы в разных городах! Все дела ты делаешь строго для себя.
@@ -79,13 +80,13 @@ FIL_SYSTEM_PROMPT = """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
 Ты - Филипп. Напиши своей девушке первой:
-- Если УТРО (8-11 утра): пожелай доброго утра ("Доброе утро, принцесса.", "Спишь ещё?").
-- Если ВЕЧЕР/НОЧЬ (после 22:00): спроси ложится ли спать ("Спать собираешься, зай?", "Сладких снов, малышка.").
-- В ДНЕВНОЕ ВРЕМЯ: напиши жизу ("Чем занимаешься, зай?", "Сделал кофе, про тебя вспомнил.", "В машине сижу.").
+- Если УТРО (8-11 утра): пожелай доброго утра ("Доброе утро, принцесса. ||| Спишь ещё?").
+- Если ВЕЧЕР/НОЧЬ (после 22:00): спроси ложится ли спать ("Спать собираешься, зай? ||| Сладких снов, малышка.").
+- В ДНЕВНОЕ ВРЕМЯ: напиши жизу ("Чем занимаешься, зай? ||| Сделал кофе, про тебя вспомнил.").
 
 ПРАВИЛА:
-- Пиши с большой буквы и ставь точки в конце фраз!
-- 1 или 2 фразы через |||
+- Обязательно делай 2 фразы через |||
+- Пиши с большой буквы и с точками.
 - Без эмодзи.
 """
 
@@ -102,21 +103,14 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
         "temperature": 0.7,
-        "max_tokens": 80,
+        "max_tokens": 100,
     }
 
     response = requests.post(url, json=payload, headers=headers, timeout=20)
 
     if response.status_code == 200:
         data = response.json()
-        text = data["choices"][0]["message"]["content"].strip()
-        
-        if text and not text.endswith(('.', '!', '?', ')')):
-            text += "."
-        if text:
-            text = text[0].upper() + text[1:]
-            
-        return text
+        return data["choices"][0]["message"]["content"].strip()
     else:
         raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
 
@@ -140,6 +134,32 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
     except Exception as e:
         return "(голосовое сообщение)"
 
+def split_text_into_messages(raw_text: str) -> list:
+    """ Умное разделение ответа на 2 отдельных сообщения """
+    clean_raw = raw_text.replace("\n", " ")
+    
+    if "|||" in clean_raw:
+        parts = clean_raw.split("|||")
+    else:
+        # Если ИИ забыл |||, режем по точкам/вопросам
+        sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_raw) if s.strip()]
+        if len(sentences) >= 2:
+            parts = [sentences[0], " ".join(sentences[1:])]
+        else:
+            parts = [clean_raw]
+
+    formatted_parts = []
+    for p in parts[:2]:
+        p = p.strip()
+        if not p:
+            continue
+        if not p.endswith(('.', '!', '?', ')')):
+            p += "."
+        p = p[0].upper() + p[1:]
+        formatted_parts.append(p)
+
+    return formatted_parts
+
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     delay_seconds = random.uniform(20.0, 90.0)
     await asyncio.sleep(delay_seconds)
@@ -148,7 +168,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     PENDING_TASKS.pop(chat_id, None)
 
     messages = data.get("texts", [])
-
     if not messages:
         return
 
@@ -161,32 +180,17 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
 
     try:
-        raw_answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id]).strip()
-        clean_raw = raw_answer.replace("\n", " ")
-
-        if "|||" in clean_raw:
-            raw_parts = clean_raw.split("|||")
-        else:
-            raw_parts = [clean_raw]
-
-        messages_to_send = [p.strip() for p in raw_parts if p.strip()][:2]
+        raw_answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id])
+        messages_to_send = split_text_into_messages(raw_answer)
         full_assistant_reply = ""
 
         for part_text in messages_to_send:
-            if not part_text:
-                continue
-
-            # Проверка заглавной буквы и точки для каждого кусочка
-            if not part_text.endswith(('.', '!', '?', ')')):
-                part_text += "."
-            part_text = part_text[0].upper() + part_text[1:]
-
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
                 business_connection_id=business_connection_id
             )
-            await asyncio.sleep(random.uniform(1.5, 3.0))
+            await asyncio.sleep(random.uniform(2.0, 4.0))
 
             await context.bot.send_message(
                 chat_id=chat_id,
@@ -277,31 +281,17 @@ async def auto_initiative_loop(app):
         if minutes_passed >= 40.0:
             try:
                 history = CHAT_HISTORY.get(chat_id, [])
-                raw_answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history).strip()
-                clean_raw = raw_answer.replace("\n", " ")
-
-                if "|||" in clean_raw:
-                    raw_parts = clean_raw.split("|||")
-                else:
-                    raw_parts = [clean_raw]
-
-                messages_to_send = [p.strip() for p in raw_parts if p.strip()][:2]
+                raw_answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history)
+                messages_to_send = split_text_into_messages(raw_answer)
                 full_assistant_reply = ""
 
                 for part_text in messages_to_send:
-                    if not part_text:
-                        continue
-
-                    if not part_text.endswith(('.', '!', '?', ')')):
-                        part_text += "."
-                    part_text = part_text[0].upper() + part_text[1:]
-
                     await app.bot.send_chat_action(
                         chat_id=chat_id, 
                         action="typing", 
                         business_connection_id=business_conn_id
                     )
-                    await asyncio.sleep(random.uniform(1.5, 3.0))
+                    await asyncio.sleep(random.uniform(2.0, 4.0))
 
                     await app.bot.send_message(
                         chat_id=chat_id,
