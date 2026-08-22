@@ -2,6 +2,7 @@ import logging
 import os
 import random
 import asyncio
+import re
 import requests
 from telegram import Update, ReactionTypeEmoji
 from telegram.ext import (
@@ -22,11 +23,8 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 # 🎭 БАЗА СТИКЕРОВ С ID
 STICKERS_MAP = {
     "1": "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
-    "2": "CAACAgIAAxkBAAEtwxpqhaFrrP0wRzZePLFtBik6xr23LgAC6BcAAowL2UiiSqB-xZy1vD0E",
-    "3": "CAACAgIAAxkBAAEtw6lqha2LcFzVrwmc-bPkyi7mlZTiaAAC8hMAAtfP8Ur1tJ_0V1OnzT0E",
 }
 
-# ❤️ СПИСОК РЕАКЦИЙ
 POSSIBLE_REACTIONS = ["❤️"]
 
 logging.basicConfig(
@@ -44,25 +42,23 @@ FIL_SYSTEM_PROMPT = """
 Ты — Филипп (Фил, Филя, Воягис Филипп Викторович, тебе 22 года). Переписываешься в Telegram со своей близкой девушкой.
 Ты ЖИВОЙ ЧЕЛОВЕК. Твоя главная задача — писать СТРОГО как реальный парень в личке Telegram.
 
-ГИБКОСТЬ И РЕАЛИЗМ ОБЩЕНИЯ (ЧЕРЕДУЙ НАСТРОЕНИЕ):
-1. ИНОГДА ПИШИ СУХО И ЕМКО (всего 1 короткое сообщение): "окей", "забей", "ахаха", "посмотрим", "Что делаешь?", "М..", "щас освобожусь".
-2. ИНОГДА ПИШИ ОБЩИТЕЛЬНО (2-3 коротких фразы через |||): по делу, с вопросом, подколом или мыслью.
-3. ОДНО СООБЩЕНИЕ = 1–5 СЛОВ. Никаких длинных монологов и портянок текста!
-4. ВСЕГДА В КОНЦЕ СООБЩЕНИЙ СТАВЬ ТОЧКИ, ВСЕГДА!!!!
+ГИБКОСТЬ И РЕАЛИЗМ ОБЩЕНИЯ:
+1. ИНОГДА ПИШИ СУХО (1 фраза): "окей", "забей", "ахаха", "что делаешь?", "щас освобожусь".
+2. ИНОГДА ПИШИ ОБЩИТЕЛЬНО (2-3 коротких фразы через |||).
+3. СТРОГОЕ ПРАВИЛО: Каждая фраза между ||| должна быть НЕ ДОЛЬШЕ 3-5 слов!
 
 ПРАВИЛА И СТИЛЬ:
-- Разделяй мысли только символом ||| (КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО использовать переносы строк!).
-- Используй живой сленг: "ахах", "щас", "норм", "что", "пиздец", "кайф", "го".
-- Заботливые и ласковые слова ("солнышко", "принцесса", "зайка") используй УМЕРЕННО, не лепи их в каждый ответ.
-- Живые темы: курение, скачки давления с детства, код, дела, шутки про 18 лет/замуж/Польшу, хакерство.
+- Обязательно разделяй мысли знаками |||
+- НИКАКИХ ДЛИННЫХ ПРЕДЛОЖЕНИЙ! Пиши огрызками фраз, как в чате.
+- Используй живой сленг: "ахах", "щас", "нормально", "что?", "пиздец", "нахуй", "го", "ужас".
+- Заботливые слова ("солнышко", "принцесса") используй редковато, без перебора.
 - Стикеры используй ОЧЕНЬ РЕДКО. Если идеально в тему — вставь [STICKER:1], [STICKER:2] или [STICKER:3] в самый конец.
 
-ПРИМЕРЫ ВАРИАНТОВ ОТВЕТА:
+ПРИМЕРЫ:
 - ахаха ||| ну ты даешь
 - окей
-- да нормальное давление, пойдет ||| ты сама как, солнышко?
+- да норм давление ||| скачет чуток ||| ты сама как?
 - щас доделаю и напишу
-- кайф ||| погнали
 """
 
 # ============================================================
@@ -82,7 +78,7 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
         "temperature": 0.85,
-        "max_tokens": 80,
+        "max_tokens": 70,
     }
 
     response = requests.post(url, json=payload, headers=headers, timeout=20)
@@ -113,30 +109,32 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
 
     try:
-        # Ставим реакцию с вероятностью 35%
+        # Реакция с шансом 35%
         if random.random() < 0.35:
             await asyncio.sleep(random.uniform(1.0, 2.5))
-            chosen_reaction = random.choice(POSSIBLE_REACTIONS)
             try:
                 await context.bot.set_message_reaction(
                     chat_id=chat_id,
                     message_id=msg.message_id,
-                    reaction=[ReactionTypeEmoji(emoji=chosen_reaction)],
+                    reaction=[ReactionTypeEmoji(emoji=random.choice(POSSIBLE_REACTIONS))],
                 )
             except Exception as rx_err:
-                print("Ошибка при установке реакции:", rx_err)
+                print("Ошибка реакции:", rx_err)
 
-        # Пауза перед тем, как вообще начать печатать (3.0 - 7.0 секунд — как будто он замешкался / прочитал)
-        await asyncio.sleep(random.uniform(3.0, 7.0))
+        # Задержка перед просмотром/ответом
+        await asyncio.sleep(random.uniform(2.5, 5.5))
 
         raw_answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id]).strip()
-
-        # Чистим переносы строк и режем по |||
         clean_raw = raw_answer.replace("\n", " ")
-        messages_to_send = [part.strip() for part in clean_raw.split("|||") if part.strip()]
 
-        # Максимум 3 бабла за один ответ
-        messages_to_send = messages_to_send[:3]
+        # УМНАЯ НАРЕЗКА: режем по |||, а если нейросеть забыла ||| — режем по точкам и знакам!
+        if "|||" in clean_raw:
+            raw_parts = clean_raw.split("|||")
+        else:
+            raw_parts = re.split(r'(?<=[.!?]) +', clean_raw)
+
+        messages_to_send = [p.strip() for p in raw_parts if p.strip()]
+        messages_to_send = messages_to_send[:3] # Максимум 3 бабла
 
         full_assistant_reply = ""
         sticker_sent = False
@@ -155,18 +153,17 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not part_text and not sticker_to_send:
                 continue
 
-            # Показываем плашку «печатает...»
+            # Индикация печати
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
                 business_connection_id=msg.business_connection_id
             )
             
-            # Более долгий набор (от 1.5 до 5.0 секунд на бабл)
-            typing_time = max(1.5, len(part_text) * 0.18)
-            await asyncio.sleep(min(typing_time, 5.0))
+            # Чтение/набор
+            typing_time = max(1.2, len(part_text) * 0.15)
+            await asyncio.sleep(min(typing_time, 4.0))
 
-            # Отправка текстовой реплики
             if part_text:
                 await context.bot.send_message(
                     chat_id=chat_id,
@@ -175,17 +172,15 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 full_assistant_reply += part_text + " "
 
-            # Отправка стикера
             if sticker_to_send:
-                await asyncio.sleep(0.8)
+                await asyncio.sleep(0.6)
                 await context.bot.send_sticker(
                     chat_id=chat_id,
                     sticker=sticker_to_send,
                     business_connection_id=msg.business_connection_id,
                 )
 
-            # Пауза между сообщениями в цепочке (1.2 - 2.5 секунды)
-            await asyncio.sleep(random.uniform(1.2, 2.5))
+            await asyncio.sleep(random.uniform(1.0, 2.0))
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
 
