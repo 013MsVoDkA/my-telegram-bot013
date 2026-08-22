@@ -118,17 +118,17 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
 
     try:
-        # Реакция ❤️ с шансом 30%
-        if random.random() < 0.3:
+        # Реакция ❤️ с шансом 50%
+        if random.random() < 0.5:
             await asyncio.sleep(random.uniform(0.3, 0.8))
             try:
                 await context.bot.set_message_reaction(
                     chat_id=chat_id,
                     message_id=msg.message_id,
-                    reaction=[ReactionTypeEmoji(emoji=random.choice(POSSIBLE_REACTIONS))],
+                    reaction=[ReactionTypeEmoji("❤️")],
                 )
             except Exception as rx_err:
-                print("Ошибка реакции:", rx_err)
+                print("⚠️ Ошибка реакции:", rx_err)
 
         await asyncio.sleep(random.uniform(0.8, 1.5))
 
