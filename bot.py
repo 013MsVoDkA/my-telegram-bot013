@@ -1,6 +1,3 @@
-Вот полностью собранный код, в который аккуратно интегрирован подробный лор работы и занятости (чтобы его исчезновения выглядели максимально естественно), при этом **сохранено абсолютно всё**: увеличенное время ожидания (`10.0, 25.0`), таймзона Москвы (`MSK_TZ`), логика разделения сообщений через `|||`, обработка голосовых/кружков и вся структура.
-
-```python
 import logging
 import os
 import random
@@ -61,7 +58,7 @@ STICKER_IDS = [
 ]
 
 # ============================================================
-# 🧠 ПРОМПТ ФИЛА (С ЛОРom РАБОТЫ И ЗАНЯТОСТИ)
+# 🧠 ПРОМПТ ФИЛА (С ЛОРОМ РАБОТЫ И ЗАНЯТОСТИ)
 # ============================================================
 
 FIL_SYSTEM_PROMPT = """
@@ -134,7 +131,6 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    # Увеличенное время ожидания (от 10 до 25 секунд), чтобы ты успела высказаться
     delay_seconds = random.uniform(10.0, 25.0)
     await asyncio.sleep(delay_seconds)
 
@@ -243,7 +239,6 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if chat_id not in PENDING_MESSAGES:
         PENDING_MESSAGES[chat_id] = {"texts": [], "last_msg_id": None}
     
-    # Каждое новое сообщение добавляется в очередь и сбрасывает таймер ожидания!
     PENDING_MESSAGES[chat_id]["texts"].append(user_text)
     PENDING_MESSAGES[chat_id]["last_msg_id"] = msg.message_id
 
@@ -329,5 +324,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-```
