@@ -1,13 +1,3 @@
-Понимаю, это реально раздражает! Бот отвечает мгновенно на каждое сообщение, перебивает и не даёт тебе дописать мысль. В реальной жизни люди ждут пару секунд — вдруг ты отправишь ещё одно сообщение.
-
-Чтобы сделать общение естественным, мы добавим **задержку ожидания (Debounce)**:
-
-1. Когда ты отправляешь сообщение, бот **ждёт 5 секунд**.
-2. Если за эти 5 секунд ты отправляешь ещё одно (или несколько) сообщений, бот сбрасывает таймер, собирает **все твои сообщения в одну кучу** и отвечает сразу на весь твой поток мыслей!
-
-Замени код в `bot.py` на этот:
-
-```python
 import logging
 import os
 import random
@@ -60,7 +50,7 @@ FIL_SYSTEM_PROMPT = """
    - Пиши ОЧЕНЬ короткими фразулями (по 2–5 слов).
    - ВСЕГДА разделяй мысли знаками |||
    - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО использовать переносы строк! Каждая фраза должна идти через |||
-   - Обязательно разделяй ответ на 2, 3 или 4 коротких сообщения подряд.
+   - Разделяй ответ максимум на 2-3 коротких сообщения.
 
 2. ГРАММАТИКА:
    - Пиши грамотно, соблюдай пунктуацию, ставь заглавные буквы и точки/запятые.
@@ -73,14 +63,13 @@ FIL_SYSTEM_PROMPT = """
    - Иногда ты должен быть занят и отвечать сухо и коротко, но грамотно.
 
 4. СТИКЕРЫ:
-   - ВНИМАНИЕ: Стикеры используй КРАЙНЕ РЕДКО! Только если ситуация супер-милая или трогательная. В 90% ответов НЕ СТАВЬ стикеры вообще.
-   - Если и решишь отправить стикер, вставь метку [STICKER:1] в самом конце самого последнего сообщения.
+   - ВНИМАНИЕ: Стикеры используй КРАЙНЕ РЕДКО! В 95% ответов НЕ СТАВЬ стикеры вообще.
+   - Если и решишь отправить стикер, вставь метку [STICKER:1] в самом конце последнего сообщения.
 
 ПРИМЕРЫ ОТВЕТОВ:
 - Привет, принцесса. ||| Ты как там?
 - Да нормальное давление, скачет опять. ||| Сейчас чаю попью и норм.
 - Забей, всё решим. ||| Я рядом.
-- Хех, засмущала совсем. ||| Обнял тебя.
 """
 
 # ============================================================
@@ -116,8 +105,8 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
 # ============================================================
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    # Ждём 5 секунд: если за это время придут новые сообщения, таймер отменится и перезапустится
-    await asyncio.sleep(5.0)
+    # Ждем 6 секунд после твоего ПОСЛЕДНЕГО сообщения
+    await asyncio.sleep(6.0)
 
     messages = PENDING_MESSAGES.pop(chat_id, [])
     PENDING_TASKS.pop(chat_id, None)
@@ -125,7 +114,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     if not messages:
         return
 
-    # Объединяем твои сообщения в одну мысль
     combined_text = "\n".join(messages)
 
     if chat_id not in CHAT_HISTORY:
@@ -151,21 +139,23 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
             match = re.search(r'\[STICKER:1\]', part_text)
             if match:
-                if random.random() < 0.25:
+                if random.random() < 0.2:
                     sticker_to_send = STICKERS_MAP.get("1")
                 part_text = re.sub(r'\[STICKER:1\]', '', part_text).strip()
 
             if not part_text and not sticker_to_send:
                 continue
 
+            # Показываем статус "печатает..." 2.5 секунды перед КАЖДЫМ сообщением
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
                 business_connection_id=business_connection_id
             )
             
-            typing_time = max(0.4, len(part_text) * 0.05)
-            await asyncio.sleep(min(typing_time, 1.5))
+            # Реалистичная пауза печати (от 2 до 4 секунд)
+            typing_delay = random.uniform(2.0, 3.5)
+            await asyncio.sleep(typing_delay)
 
             if part_text:
                 await context.bot.send_message(
@@ -176,14 +166,15 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 full_assistant_reply += part_text + " "
 
             if sticker_to_send:
-                await asyncio.sleep(0.3)
+                await asyncio.sleep(1.0)
                 await context.bot.send_sticker(
                     chat_id=chat_id,
                     sticker=sticker_to_send,
                     business_connection_id=business_connection_id,
                 )
 
-            await asyncio.sleep(random.uniform(0.3, 0.7))
+            # Обязательный перерыв между отправкой отдельных сообщений (2–3 секунды)
+            await asyncio.sleep(random.uniform(2.0, 3.0))
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
 
@@ -202,8 +193,8 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = msg.chat.id
     user_text = msg.text or "[Медиа/Стикер]"
 
-    # Реакция ❤️ ставится сразу на входящее сообщение
-    if random.random() < 0.5:
+    # Реакция ❤️
+    if random.random() < 0.4:
         try:
             await context.bot.set_message_reaction(
                 chat_id=chat_id,
@@ -213,16 +204,15 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as rx_err:
             print("⚠️ Ошибка реакции:", rx_err)
 
-    # Сохраняем входящее сообщение в буфер
     if chat_id not in PENDING_MESSAGES:
         PENDING_MESSAGES[chat_id] = []
     PENDING_MESSAGES[chat_id].append(user_text)
 
-    # Если уже был запущен таймер ожидания — отменяем его
+    # Если ты написала еще одно сообщение — сбрасываем таймер и ждем заново!
     if chat_id in PENDING_TASKS:
         PENDING_TASKS[chat_id].cancel()
 
-    # Запускаем новый таймер на 5 секунд
+    # Запускаем таймаут ожидания на 6 секунд
     PENDING_TASKS[chat_id] = asyncio.create_task(
         process_delayed_reply(chat_id, msg.business_connection_id, context)
     )
@@ -242,7 +232,6 @@ async def handle_business_connection(update: Update, context: ContextTypes.DEFAU
     if update.business_connection:
         print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
 
-# Микро-сервер для Render
 async def handle_ping(request):
     return web.Response(text="Bot is live!")
 
@@ -285,7 +274,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-```
-
-Теперь ты спокойно можешь слать хоть 5 сообщений подряд — он дождется, пока ты закончишь говорить (5 секунд тишины с твоей стороны), прочитает весь твой монолог целиком и ответит по существу!
