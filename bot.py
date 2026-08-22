@@ -6,7 +6,7 @@ import re
 import requests
 from datetime import datetime, timezone, timedelta
 from aiohttp import web
-from telegram import Update, ReactionTypeEmoji
+from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
@@ -183,7 +183,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             except Exception as p_err:
                 print("⚠️ Ошибка отправки фото:", p_err)
 
-        # 💬 Определение, нужно ли делать reply (шанс 40%)
+        # 💬 Определение, нужно ли цитировать сообщение (Reply) (шанс 40%)
         should_reply = random.random() < 0.40
 
         for i, part_text in enumerate(messages_to_send):
@@ -197,7 +197,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             )
             await asyncio.sleep(random.uniform(2.5, 4.5))
 
-            # Прикрепляем reply только к первой отправляемой фразе
             reply_to_id = last_msg_id if (should_reply and i == 0) else None
 
             await context.bot.send_message(
@@ -239,17 +238,6 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     LAST_DIALOG_INFO["chat_id"] = chat_id
     LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
     LAST_DIALOG_INFO["last_activity"] = get_msk_now()
-
-    # ❤️ Реакция (исправлено под Business Connection API, шанс 40%)
-    if random.random() < 0.40:
-        try:
-            await context.bot.set_message_reaction(
-                chat_id=chat_id,
-                message_id=msg.message_id,
-                reaction=[ReactionTypeEmoji(emoji="❤️")],
-            )
-        except Exception as rx_err:
-            print("⚠️ Ошибка реакции:", rx_err)
 
     if chat_id not in PENDING_MESSAGES:
         PENDING_MESSAGES[chat_id] = {"texts": [], "last_msg_id": None}
