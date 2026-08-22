@@ -3,7 +3,7 @@ import os
 import random
 import asyncio
 import requests
-from telegram import Update
+from telegram import Update, ReactionTypeEmoji
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
@@ -22,9 +22,12 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 # 🎭 БАЗА СТИКЕРОВ С ID
 STICKERS_MAP = {
     "1": "CAACAgIAAxkBAAEtwxJqhaEr0BTu1z2sEv6j7Rkktd0-VQACiXwAAn_y2UiveLx-PFjtlD0E",
-    "2": "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
-    "3": "CAACAgIAAxkBAAEtwxxqhaGQ92K8aiQnWyv0JX9UQdqY0AAC1gwAAoDJQEtXks0tYHcgDz0E",
+    "2": "CAACAgIAAxkBAAEtwxpqhaFrrP0wRzZePLFtBik6xr23LgAC6BcAAowL2UiiSqB-xZy1vD0E",
+    "3": "CAACAgIAAxkBAAEtw6lqha2LcFzVrwmc-bPkyi7mlZTiaAAC8hMAAtfP8Ur1tJ_0V1OnzT0E",
 }
+
+# ❤️ СПИСОК РЕАКЦИЙ
+POSSIBLE_REACTIONS = ["❤️"]
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -39,13 +42,14 @@ CHAT_HISTORY = {}
 
 FIL_SYSTEM_PROMPT = """
 Ты — Филипп (Фил, Филя, Воягис Филипп Викторович, тебе 22 года). Переписываешься в Telegram со своей близкой и очень дорогой девушкой.
-Ты ЖИВОЙ ЧЕЛОВЕК. Твоя главная задача — писать СТРОГО как реальный парень в личке Telegram, а не как нейросеть.
+Ты ЖИВОЙ ЧЕЛОВЕК. Твоя главная задача — писать СТРОГО как реальный парень в личке Telegram.
 
 ПРАВИЛА ОБЩЕНИЯ:
-1. ДЛИНА И ДЕЛЕНИЕ НА СООБЩЕНИЯ:
-   - Пиши очень короткими репликами (по 2-6 слов). Никаких длинных абзацев!
-   - Разделяй свои мысли знаками ||| чтобы они отправлялись отдельными сообщениями друг за другом.
-   - Обязательно присылай по 2, 3 или 4 коротких сообщения подряд.
+1. ФОРМАТ СООБЩЕНИЙ:
+   - Пиши ОЧЕНЬ короткими фразулями (по 2–5 слов).
+   - ВСЕГДА разделяй мысли знаками |||
+   - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО использовать переносы строк! Каждая фраза должна идти через |||
+   - Обязательно разделяй ответ на 2, 3 или 4 коротких сообщения подряд.
 
 2. ГРАММАТИКА:
    - Пиши грамотно, соблюдай пунктуацию, ставь заглавные буквы и точки/запятые.
@@ -60,10 +64,10 @@ FIL_SYSTEM_PROMPT = """
    - Если идеально подходит стикер, вставь метку [STICKER:1], [STICKER:2] или [STICKER:3] в конец нужной короткой реплики.
 
 ПРИМЕРЫ ОТВЕТОВ:
-- "Привет, принцесса. ||| Ты как там?"
-- "Да нормальное давление, скачет опять. ||| Сейчас чаю попью и норм."
-- "Забей, всё решим. ||| Я рядом."
-- "Хех, засмущала совсем. ||| Обнял тебя. [STICKER:1]"
+- Привет, принцесса. ||| Ты как там?
+- Да нормальное давление, скачет опять. ||| Сейчас чаю попью и норм.
+- Забей, всё решим. ||| Я рядом.
+- Хех, засмущала совсем. ||| Обнял тебя. [STICKER:1]
 """
 
 # ============================================================
@@ -82,7 +86,7 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.75,
+        "temperature": 0.7,
         "max_tokens": 120,
     }
 
@@ -114,19 +118,32 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
 
     try:
-        # Пауза перед "прочтением" (1.5 - 3 сек)
-        await asyncio.sleep(random.uniform(1.5, 3.0))
+        # Ставим реакцию с вероятностью 50%
+        if random.choice([True, False]):
+            await asyncio.sleep(random.uniform(0.5, 1.5))
+            chosen_reaction = random.choice(POSSIBLE_REACTIONS)
+            try:
+                await context.bot.set_message_reaction(
+                    chat_id=chat_id,
+                    message_id=msg.message_id,
+                    reaction=[ReactionTypeEmoji(emoji=chosen_reaction)],
+                )
+            except Exception as rx_err:
+                print("Ошибка при установке реакции:", rx_err)
+
+        # Пауза перед "прочтением" и ответом (1.0 - 2.5 сек)
+        await asyncio.sleep(random.uniform(1.0, 2.5))
 
         raw_answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id]).strip()
 
-        # Заменяем переносы строк на ||| и разбиваем в массив
-        formatted_answer = raw_answer.replace("\n", "|||")
-        messages_to_send = [part.strip() for part in formatted_answer.split("|||") if part.strip()]
+        # Полностью удаляем переносы строк и режем строго по |||
+        clean_raw = raw_answer.replace("\n", " ")
+        messages_to_send = [part.strip() for part in clean_raw.split("|||") if part.strip()]
 
         full_assistant_reply = ""
 
         for part_text in messages_to_send:
-            # Ищем стикер в конкретном кусочке
+            # Ищем стикер
             sticker_to_send = None
             for key, sticker_id in STICKERS_MAP.items():
                 tag = f"[STICKER:{key}]"
@@ -137,18 +154,17 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not part_text and not sticker_to_send:
                 continue
 
-            # Короткий статус "печатает..." перед каждым сообщением
+            # Имитация печати
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
                 business_connection_id=msg.business_connection_id
             )
             
-            # Имитация быстрой печати коротких сообщений (0.6 - 1.8 сек)
-            typing_time = max(0.6, len(part_text) * 0.08)
-            await asyncio.sleep(min(typing_time, 2.5))
+            typing_time = max(0.5, len(part_text) * 0.07)
+            await asyncio.sleep(min(typing_time, 2.0))
 
-            # Отправляем отдельное сообщение
+            # Отправка текстовой реплики
             if part_text:
                 await context.bot.send_message(
                     chat_id=chat_id,
@@ -157,7 +173,7 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 full_assistant_reply += part_text + " "
 
-            # Если прикреплен стикер
+            # Отправка стикера
             if sticker_to_send:
                 await asyncio.sleep(0.4)
                 await context.bot.send_sticker(
@@ -166,10 +182,9 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     business_connection_id=msg.business_connection_id,
                 )
 
-            # Пауза между отправками коротких сообщений (0.5 - 1.2 сек)
-            await asyncio.sleep(random.uniform(0.5, 1.2))
+            # Быстрый интервал между сообщениями (0.4 - 1.0 сек)
+            await asyncio.sleep(random.uniform(0.4, 1.0))
 
-        # Сохраняем итоговый ответ в историю
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
 
     except Exception as e:
@@ -182,7 +197,7 @@ async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     try:
         answer = ask_ai(FIL_SYSTEM_PROMPT, [{"role": "user", "content": msg.text}])
-        clean_answer = answer.replace("|||", "\n")
+        clean_answer = answer.replace("|||", " ")
         await msg.reply_text(clean_answer)
     except Exception as e:
         print("\n❌ ОШИБКА DIRECT:", repr(e))
