@@ -4,6 +4,7 @@ import random
 import asyncio
 import re
 import requests
+from datetime import datetime
 from aiohttp import web
 from telegram import Update, ReactionTypeEmoji
 from telegram.ext import (
@@ -31,6 +32,13 @@ CHAT_HISTORY = {}
 PENDING_TASKS = {}
 PENDING_MESSAGES = {}
 
+# Храним информацию о последнем активном диалоге
+LAST_DIALOG_INFO = {
+    "chat_id": None,
+    "business_connection_id": None,
+    "last_activity": None
+}
+
 # ============================================================
 # 🧠 ПСИХОТИП И СТИЛЬ ФИЛА
 # ============================================================
@@ -57,6 +65,17 @@ FIL_SYSTEM_PROMPT = """
 - Иди гуляй давай, потом напишешь.
 """
 
+FIL_AUTO_INITIATIVE_PROMPT = """
+Ты — Филипп. Ты сам решил написать своей девушке первым спустя время молчания.
+Напиши 1 или максимум 2 короткие фразы (через |||).
+Спроси как она, чем занята, или просто напиши, что соскучился / вышел покурить / освободился.
+Без эмодзи и без стикеров.
+Примеры:
+- Ты как там? ||| Соскучился что-то.
+- Чем занимаешься?
+- Вышел покурить, вспомнил про тебя. ||| Отзовись.
+"""
+
 # ============================================================
 # 🔄 ЗАПРОС К OPENROUTER
 # ============================================================
@@ -73,7 +92,7 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.7,
+        "temperature": 0.75,
         "max_tokens": 80,
     }
 
@@ -90,7 +109,6 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
 # ============================================================
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    # Пауза 7 секунд перед тем, как бот вообще станет что-либо делать (ждёт, пока ты допишешь)
     await asyncio.sleep(7.0)
 
     messages = PENDING_MESSAGES.pop(chat_id, [])
@@ -116,7 +134,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         else:
             raw_parts = [clean_raw]
 
-        # Ограничиваем жестко: максимум 2 сообщения за ответ
         messages_to_send = [p.strip() for p in raw_parts if p.strip()][:2]
         full_assistant_reply = ""
 
@@ -124,7 +141,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             if not part_text:
                 continue
 
-            # Имитируем долгое печатание (3-5 секунд)
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
@@ -139,10 +155,10 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             )
             full_assistant_reply += part_text + " "
 
-            # Пауза между первым и вторым сообщением — 4 секунды
             await asyncio.sleep(4.0)
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
+        LAST_DIALOG_INFO["last_activity"] = datetime.now()
 
     except Exception as e:
         print("\n❌ ОШИБКА BUSINESS:", repr(e))
@@ -159,7 +175,11 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = msg.chat.id
     user_text = msg.text or "[Медиа/Стикер]"
 
-    # Реакция ❤️ редкая (20%)
+    # Сохраняем информацию для авто-сообщений
+    LAST_DIALOG_INFO["chat_id"] = chat_id
+    LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
+    LAST_DIALOG_INFO["last_activity"] = datetime.now()
+
     if random.random() < 0.2:
         try:
             await context.bot.set_message_reaction(
@@ -174,13 +194,83 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
         PENDING_MESSAGES[chat_id] = []
     PENDING_MESSAGES[chat_id].append(user_text)
 
-    # Если ты сбрасываешь текст снова — старый таймер отменяется
     if chat_id in PENDING_TASKS:
         PENDING_TASKS[chat_id].cancel()
 
     PENDING_TASKS[chat_id] = asyncio.create_task(
         process_delayed_reply(chat_id, msg.business_connection_id, context)
     )
+
+# ============================================================
+# ⏰ АВТО-ИНИЦИАТИВА (Бот пишет первым)
+# ============================================================
+
+async def auto_initiative_loop(app):
+    await asyncio.sleep(30) # Пауза при запуске бота
+
+    while True:
+        # Проверяем каждые 30 минут
+        await asyncio.sleep(1800)
+
+        chat_id = LAST_DIALOG_INFO["chat_id"]
+        business_conn_id = LAST_DIALOG_INFO["business_connection_id"]
+        last_activity = LAST_DIALOG_INFO["last_activity"]
+
+        if not chat_id or not business_conn_id or not last_activity:
+            continue
+
+        now = datetime.now()
+        hours_passed = (now - last_activity).total_seconds() / 3600.0
+
+        # Не пишем ночью (с 23:00 до 08:00)
+        current_hour = now.hour
+        if current_hour >= 23 or current_hour < 8:
+            continue
+
+        # Если молчите больше 3.5 часов — пишем с вероятностью 60%
+        if hours_passed >= 3.5 and random.random() < 0.6:
+            try:
+                history = CHAT_HISTORY.get(chat_id, [])
+                raw_answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history).strip()
+                clean_raw = raw_answer.replace("\n", " ")
+
+                if "|||" in clean_raw:
+                    raw_parts = clean_raw.split("|||")
+                else:
+                    raw_parts = [clean_raw]
+
+                messages_to_send = [p.strip() for p in raw_parts if p.strip()][:2]
+                full_assistant_reply = ""
+
+                for part_text in messages_to_send:
+                    if not part_text:
+                        continue
+
+                    await app.bot.send_chat_action(
+                        chat_id=chat_id, 
+                        action="typing", 
+                        business_connection_id=business_conn_id
+                    )
+                    await asyncio.sleep(random.uniform(3.0, 5.0))
+
+                    await app.bot.send_message(
+                        chat_id=chat_id,
+                        text=part_text,
+                        business_connection_id=business_conn_id,
+                    )
+                    full_assistant_reply += part_text + " "
+                    await asyncio.sleep(3.0)
+
+                if chat_id not in CHAT_HISTORY:
+                    CHAT_HISTORY[chat_id] = []
+                CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
+                
+                # Обновляем таймер активности
+                LAST_DIALOG_INFO["last_activity"] = datetime.now()
+
+            except Exception as e:
+                print("❌ Ошибка авто-инициативы:", e)
+
 
 async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
@@ -223,6 +313,9 @@ async def main():
     app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
     app.add_handler(TypeHandler(Update, handle_business), group=-1)
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_direct))
+
+    # Запускаем фоновый таймер авто-сообщений
+    asyncio.create_task(auto_initiative_loop(app))
 
     async with app:
         await app.initialize()
