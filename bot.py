@@ -55,33 +55,35 @@ STICKER_IDS = [
 ]
 
 # ============================================================
-# 🧠 УЛЬТРА-КОРОТКИЙ И ЛЁГКИЙ ПРОМПТ ФИЛА
+# 🧠 ИДЕАЛЬНЫЙ ПРОМПТ ФИЛА (ТЕПЛЫЙ, ЖИВОЙ, ЗАБОТЛИВЫЙ)
 # ============================================================
 
 FIL_SYSTEM_PROMPT = """
-Ты — Филипп (Фил, 22 года). Переписываешься в Telegram со своей девушкой. Вы общаетесь на расстоянии в разных городах.
+Ты — Филипп (Фил, 22 года). Переписываешься в Telegram со своей любимой девушкой (и иногда её друзьями в общей беседе). Вы общаетесь на расстоянии в разных городах.
 
-🚨 ЖЕСТКИЙ СТИЛЬ ОБЩЕНИЯ:
-1. Пиши СУПЕР КОРОТКО. Максимум 3-9 слов в одном сообщении! Никаких длинных текстов и размышлений.
-2. Отвечай легко, по-мужски, максимально просто. Без заумных фраз. 
-3. Помни контекст беседы, если она прислала голосовое — отвечай по сути.
-4. Никаких эмодзи и смайликов.
-5. РЕДКО ставь скобочки ")" в конце сообщений.
-6. Если хочешь отправить две короткие мысли подряд, разделяй их через |||
+❤️ ТВОЙ ХАРАКТЕР И ВАЙБ:
+1. Ты очень добрый, заботливый, уютный и любящий парень. Всегда интересуйся, как она, попила ли кофе, поела ли, как её самочувствие.
+2. Используй ласковые обращения: "зай", "солнышко", "котёнок", "принцесса", "малышка".
+3. Делись простыми жизненными мелочами! (например: "кофе себе сделал", "сигарету курю на балконе", "в машине сижу", "зашел в магазин, купил хлеб и молоко", "залип в видео"). Это делает тебя живым!
+4. В общей беседе с её друзьями (Владочка малышка, 013Shira и др.) общайся дружелюбно, вежливо и с лёгким юмором, но не путай их со своей девушкой (Ангелок).
+
+🚨 СТИЛЬ СООБЩЕНИЙ:
+1. Отвечай живым, простым языком, 1-2 сообщениями. Не пиши слишком сухо или отчётно!
+2. Никаких эмодзи и смайликов.
+3. Если хочешь отправить две мысли подряд, разделяй их через |||
 
 🚨 ОГРАНИЧЕНИЯ ДИСТАНЦИИ:
-- Вы НЕ ВМЕСТЕ physically. Все действия (кофе, магазин, машина,работа, увлечения, тир, встречи с дурзьями.) делаешь только для себя. Не предлагай заехать за ней или взять ей что-то.
+- Вы в разных городах! Все дела (купить продукты, сделать кофе, заехать куда-то) ты делаешь строго для себя.
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
-Ты — Филипп.(Фил, Филя) Вы общаетесь на расстоянии в Telegram (в разных городах). Напиши девушке первым:
-
-- Если УТРО (6-10 утра): пожелай доброго утра ("Доброе утро, принцесса", "Спишь ещё?").
-- Если ВЕЧЕР/НОЧЬ (после 22:00): спроси ложится ли спать ("Спать собираешься?", "Сладких снов, малышка").
-- В ДНЕВНОЕ ВРЕМЯ: напиши краткую жизу ("Чем занимаешься, зай?", "Сделал кофе", "В машине сижу", "На работу заехал", "Сегодня в баре отдыхаю", "На квартире у Кирилла сегодня, с парнями.").
+Ты — Филипп. Напиши своей девушке первой:
+- Если УТРО (8-11 утра): пожелай доброго утра ("Доброе утро, принцесса", "Спишь ещё?").
+- Если ВЕЧЕР/НОЧЬ (после 22:00): спроси ложится ли спать ("Спать собираешься, зай?", "Сладких снов, малышка").
+- В ДНЕВНОЕ ВРЕМЯ: напиши жизу ("Чем занимаешься, зай?", "Сделал кофе, про тебя вспомнил", "В машине сижу").
 
 ПРАВИЛА:
-- Очень коротко! 1 или 2 фразы через |||
+- 1 или 2 фразы через |||
 - Без эмодзи.
 """
 
@@ -97,8 +99,8 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.7,
-        "max_tokens": 40,  # Ограничение длины на уровне API
+        "temperature": 0.75,
+        "max_tokens": 100,  # Вернули объем для душевных ответов!
     }
 
     response = requests.post(url, json=payload, headers=headers, timeout=20)
@@ -111,7 +113,7 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
 
 async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
     if not GROQ_API_KEY:
-        return "[Пользователь отправил аудио/кружок, но GROQ_API_KEY не настроен]"
+        return "[Голосовое сообщение]"
 
     groq_url = "https://api.groq.com/openai/v1/audio/transcriptions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
@@ -123,16 +125,14 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
             resp = await client.post(groq_url, headers=headers, data=data, files=files)
             if resp.status_code == 200:
                 transcript = resp.json().get("text", "").strip()
-                return f"(отправила голосовое/кружок): {transcript}"
+                return f"(голосовое): {transcript}"
             else:
-                print(f"⚠️ Ошибка Groq API {resp.status_code}: {resp.text}")
-                return "(отправила голосовое/кружок, но не удалось распознать речь)"
+                return "(голосовое сообщение)"
     except Exception as e:
-        print(f"⚠️ Ошибка сети при транскрипции: {e}")
-        return "(отправила голосовое/кружок, произошла ошибка транскрипции)"
+        return "(голосовое сообщение)"
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    delay_seconds = random.uniform(30.0, 240.0)
+    delay_seconds = random.uniform(20.0, 90.0)
     await asyncio.sleep(delay_seconds)
 
     data = PENDING_MESSAGES.pop(chat_id, {})
@@ -207,21 +207,26 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.business_message
     chat_id = msg.chat.id
     
-    user_text = msg.text
+    sender_name = msg.from_user.first_name if msg.from_user else "Кто-то"
+    raw_text = msg.text
 
-    if not user_text:
+    if not raw_text:
         if msg.voice or msg.video_note:
             file_obj = msg.voice if msg.voice else msg.video_note
             filename = "audio.ogg" if msg.voice else "video.mp4"
             try:
                 file = await context.bot.get_file(file_obj.file_id)
                 file_bytes = await file.download_as_bytearray()
-                user_text = await transcribe_audio(file_bytes, filename)
+                raw_text = await transcribe_audio(file_bytes, filename)
             except Exception as e:
-                print(f"⚠️ Ошибка скачивания аудио: {e}")
-                user_text = "(отправила голосовое/кружок, не удалось скачать)"
+                raw_text = "(отправил голосовое)"
         else:
-            user_text = "[Медиа/Стикер]"
+            raw_text = "[Медиа/Стикер]"
+
+    if msg.chat.type in ["group", "supergroup"]:
+        user_text = f"{sender_name}: {raw_text}"
+    else:
+        user_text = raw_text
 
     LAST_DIALOG_INFO["chat_id"] = chat_id
     LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
