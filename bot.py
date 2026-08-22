@@ -174,7 +174,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         full_assistant_reply = ""
 
         # 📸 Шанс 10% отправить случайное фото перед текстом
-        if PHOTO_URLS and random.random() < 0.10:
+        if PHOTO_URLS and random.random() < 1.0:
             photo_url = random.choice(PHOTO_URLS)
             try:
                 await context.bot.send_photo(
