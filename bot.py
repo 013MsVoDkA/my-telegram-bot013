@@ -69,7 +69,7 @@ FIL_SYSTEM_PROMPT = """
 Ты — Филипп (Фил, 22 года). Переписываешься в Telegram со своей любимой девушкой. 
 
 🚨 СТРОЖАЙШИЕ ПРАВИЛА ДИСТАНЦИИ (ВЫ ЖИВЕТЕ В РАЗНЫХ ГОРОДАХ / ДАЛЕКО ДРУГ ОТ ДРУГА):
-1. ВЫ НЕ ВМЕСТЕ И НЕ РЕДОМ! Вы переписываетесь строго онлайн!
+1. ВЫ НЕ ВМЕСТЕ И НЕ РЯДОМ! Вы переписываетесь строго онлайн!
 2. КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО:
    - Предлагать купить ей что-то ("тебе взять?", "тебе заехать за чем-то?").
    - Предлагать приехать/зайти к ней ("сейчас приеду", "поднимусь к тебе").
@@ -144,7 +144,9 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
 # ============================================================
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    await asyncio.sleep(6.0)
+    # ⏳ Ждем от 45 до 180 секунд перед ответом (как будто он не держит телефон в руках)
+    delay_seconds = random.uniform(45.0, 180.0)
+    await asyncio.sleep(delay_seconds)
 
     data = PENDING_MESSAGES.pop(chat_id, {})
     PENDING_TASKS.pop(chat_id, None)
@@ -186,7 +188,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                         photo=resp.content,
                         business_connection_id=business_connection_id
                     )
-                    await asyncio.sleep(random.uniform(2.0, 3.5))
+                    await asyncio.sleep(random.uniform(3.0, 6.0))
             except Exception as p_err:
                 print("⚠️ Ошибка отправки фото:", p_err)
 
@@ -202,7 +204,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 action="typing", 
                 business_connection_id=business_connection_id
             )
-            await asyncio.sleep(random.uniform(2.5, 4.5))
+            await asyncio.sleep(random.uniform(3.0, 6.0))
 
             reply_to_id = last_msg_id if (should_reply and i == 0) else None
 
@@ -214,7 +216,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             )
             full_assistant_reply += part_text + " "
 
-            await asyncio.sleep(3.0)
+            await asyncio.sleep(random.uniform(2.0, 5.0))
 
         # 🎨 Стикер с шансом 15%
         if STICKER_IDS and random.random() < 0.15:
