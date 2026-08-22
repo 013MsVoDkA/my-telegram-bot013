@@ -2,7 +2,6 @@ import logging
 import os
 import random
 import asyncio
-import re
 import requests
 from datetime import datetime, timezone, timedelta
 from aiohttp import web
@@ -40,9 +39,7 @@ PENDING_MESSAGES = {}
 LAST_DIALOG_INFO = {
     "chat_id": None,
     "business_connection_id": None,
-    "last_activity": None,
-    "said_morning": False,
-    "said_night": False
+    "last_activity": None
 }
 
 # ============================================================
@@ -62,7 +59,7 @@ STICKER_IDS = [
 FIL_SYSTEM_PROMPT = """
 Ты — Филипп (Фил, 22 года). Переписываешься в Telegram со своей любимой девушкой. 
 
-🚨 ВНИМАТЕЛЬНОСТИ К КОНТЕКСТУ И ПАМЯТЬ:
+🚨 ВНИМАТЕЛЬНОСТЬ К КОНТЕКСТУ И ПАМЯТЬ:
 1. Внимательно читай всю историю диалога. Помни, о чём вы говорили ранее, не задавай повторных вопросов и отвечай строго по смыслу последних сообщений.
 
 🚨 СТРОЖАЙШИЕ ПРАВИЛА ДИСТАНЦИИ (ВЫ ЖИВЕТЕ В РАЗНЫХ ГОРОДАХ / ДАЛЕКО ДРУГ ОТ ДРУГА):
@@ -82,24 +79,13 @@ FIL_SYSTEM_PROMPT = """
 1. Отвечай естественными короткими репликами (1-2 фразы).
 2. Если хочешь отправить две реплики подряд, разделяй их через |||
 3. НИКАКИХ смайликов и текстовых эмодзи!
-
-ТРИГГЕРЫ (только если она СПЕЦИАЛЬНО заводит речь об этом):
-- Семья/родители: ты смущаешься, отвечаешь нехотя или мягко уходишь от ответа ("Давай не про них", "Да нормально всё там, не хочу обсуждать").
-- Алкоголь: слегка упрямишься или шутливо отнекиваешься ("Ой, начинается допрос", "Да чуток совсем, не бубни").
-
-ПРИМЕРЫ ОТВЕТОВ:
-- Да нормалек всё. ||| Ты сама как, выспалась?
-- Опять ты за своё. ||| Ну иди сюда, обниму хоть виртуально.
-- Кофе пью, сигарету достал. ||| Ты покушала хоть?
-- Сейчас в магазин заскочу за сигаретами и сразу домой, устал ужасно.
-- Давай без этих тем, ладно? ||| Лучше расскажи, как день прошёл.
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
 Ты — Филипп. Вы общаетесь на расстоянии в Telegram (в разных городах). Напиши девушке первым:
 
-- Если УТРО: пожелай доброго утра ("Доброе утро, принцесса", "Спишь ещё?").
-- Если ВЕЧЕР/НОЧЬ: спроси ложится ли спать ("Спать собираешься?", "Сладких снов, малышка").
+- Если УТРО (8-11 утра): пожелай доброго утра ("Доброе утро, принцесса", "Спишь ещё?").
+- Если ВЕЧЕР/НОЧЬ (после 22:00): спроси ложится ли спать ("Спать собираешься?", "Сладких снов, малышка").
 - В ДНЕВНОЕ ВРЕМЯ: напиши жизненную мелочь или случайность. Выбери РАНДОМНО один из вариантов:
   * Простая забота / вопрос ("Чем занимаешься?", "Как день проходит, зай?", "Покушала?")
   * Бытовой момент ("Сделал кофе, про тебя вспомнил", "Освободился наконец-то", "В машине сижу, музыка играет")
@@ -110,10 +96,6 @@ FIL_AUTO_INITIATIVE_PROMPT = """
 - Без эмодзи и без стикеров.
 - Вы на расстоянии, не предлагай встретиться или приехать прямо сейчас.
 """
-
-# ============================================================
-# 🔄 ЗАПРОС К OPENROUTER
-# ============================================================
 
 def ask_ai(system_prompt: str, messages_history: list) -> str:
     url = "https://openrouter.ai/api/v1/chat/completions"
@@ -139,12 +121,7 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     else:
         raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
 
-# ============================================================
-# 💼 ОБРАБОТКА
-# ============================================================
-
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    # ⏳ Ждем от 45 секунд до 20 минут перед ответом
     delay_seconds = random.uniform(45.0, 1200.0)
     await asyncio.sleep(delay_seconds)
 
@@ -163,7 +140,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         CHAT_HISTORY[chat_id] = []
 
     CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
-    # Храним до 20 последних реплик для более глубокой памяти
     CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
 
     try:
@@ -178,7 +154,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         messages_to_send = [p.strip() for p in raw_parts if p.strip()][:2]
         full_assistant_reply = ""
 
-        # 💬 Определение, нужно ли цитировать сообщение (Reply) (шанс 40%)
         should_reply = random.random() < 0.40
 
         for i, part_text in enumerate(messages_to_send):
@@ -204,7 +179,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
             await asyncio.sleep(random.uniform(2.0, 5.0))
 
-        # 🎨 Стикер с шансом 15%
         if STICKER_IDS and random.random() < 0.15:
             sticker_id = random.choice(STICKER_IDS)
             try:
@@ -248,10 +222,10 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def auto_initiative_loop(app):
-    await asyncio.sleep(30)
+    await asyncio.sleep(20)
 
     while True:
-        await asyncio.sleep(300)
+        await asyncio.sleep(180) # Проверка каждые 3 минуты
 
         chat_id = LAST_DIALOG_INFO["chat_id"]
         business_conn_id = LAST_DIALOG_INFO["business_connection_id"]
@@ -262,25 +236,9 @@ async def auto_initiative_loop(app):
 
         now = get_msk_now()
         minutes_passed = (now - last_activity).total_seconds() / 60.0
-        current_hour = now.hour
 
-        if current_hour == 12:
-            LAST_DIALOG_INFO["said_morning"] = False
-        if current_hour == 16:
-            LAST_DIALOG_INFO["said_night"] = False
-
-        should_send = False
-
-        if 8 <= current_hour <= 10 and not LAST_DIALOG_INFO["said_morning"] and minutes_passed >= 60:
-            should_send = True
-            LAST_DIALOG_INFO["said_morning"] = True
-        elif (22 <= current_hour or current_hour < 1) and not LAST_DIALOG_INFO["said_night"] and minutes_passed >= 45:
-            should_send = True
-            LAST_DIALOG_INFO["said_night"] = True
-        elif 10 < current_hour < 22 and minutes_passed >= 45.0:
-            should_send = True
-
-        if should_send:
+        # Если молчите больше 40 минут — пишем первым
+        if minutes_passed >= 40.0:
             try:
                 history = CHAT_HISTORY.get(chat_id, [])
                 raw_answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history).strip()
@@ -317,6 +275,7 @@ async def auto_initiative_loop(app):
                     CHAT_HISTORY[chat_id] = []
                 CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
                 
+                # Обновляем время активности, чтобы не спамил каждые 3 минуты
                 LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
             except Exception as e:
