@@ -1,3 +1,13 @@
+Понимаю, это реально раздражает! Бот отвечает мгновенно на каждое сообщение, перебивает и не даёт тебе дописать мысль. В реальной жизни люди ждут пару секунд — вдруг ты отправишь ещё одно сообщение.
+
+Чтобы сделать общение естественным, мы добавим **задержку ожидания (Debounce)**:
+
+1. Когда ты отправляешь сообщение, бот **ждёт 5 секунд**.
+2. Если за эти 5 секунд ты отправляешь ещё одно (или несколько) сообщений, бот сбрасывает таймер, собирает **все твои сообщения в одну кучу** и отвечает сразу на весь твой поток мыслей!
+
+Замени код в `bot.py` на этот:
+
+```python
 import logging
 import os
 import random
@@ -34,6 +44,8 @@ logging.basicConfig(
 )
 
 CHAT_HISTORY = {}
+PENDING_TASKS = {}
+PENDING_MESSAGES = {}
 
 # ============================================================
 # 🧠 ПСИХОТИП И СТИЛЬ ФИЛА
@@ -54,11 +66,11 @@ FIL_SYSTEM_PROMPT = """
    - Пиши грамотно, соблюдай пунктуацию, ставь заглавные буквы и точки/запятые.
 
 3. ХАРАКТЕР:
-   - Заботливый, романтичный, но ведешь себя больше как мужчина, который знает себе цену, но при этом готов забодиться о девушке.
+   - Заботливый, романтичный, но ведешь себя больше как мужчина, который знает себе цену, но при этом готов заботиться о девушке.
    - Используй обращения, но редко: "солнышко", "принцесса", "зайченыш", "ангелок".
    - Живые темы: курение, скачки давления с детства, дела, шутки про 18 лет/замуж/Польшу, хакерство, простая бытовуха, планы на будущее, мечты про встречу, шутки про 18+.
    - В ответ на ласку — отвечай нежностью и теплом.
-   - Иногда ты должен быть занят и отвечать сухо и коротко, но граммотно.
+   - Иногда ты должен быть занят и отвечать сухо и коротко, но грамотно.
 
 4. СТИКЕРЫ:
    - ВНИМАНИЕ: Стикеры используй КРАЙНЕ РЕДКО! Только если ситуация супер-милая или трогательная. В 90% ответов НЕ СТАВЬ стикеры вообще.
@@ -100,6 +112,85 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
         raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
 
 # ============================================================
+# 💼 ОБРАБОТКА НАКОПЛЕННЫХ СООБЩЕНИЙ
+# ============================================================
+
+async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
+    # Ждём 5 секунд: если за это время придут новые сообщения, таймер отменится и перезапустится
+    await asyncio.sleep(5.0)
+
+    messages = PENDING_MESSAGES.pop(chat_id, [])
+    PENDING_TASKS.pop(chat_id, None)
+
+    if not messages:
+        return
+
+    # Объединяем твои сообщения в одну мысль
+    combined_text = "\n".join(messages)
+
+    if chat_id not in CHAT_HISTORY:
+        CHAT_HISTORY[chat_id] = []
+
+    CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
+    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
+
+    try:
+        raw_answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id]).strip()
+        clean_raw = raw_answer.replace("\n", " ")
+
+        if "|||" in clean_raw:
+            raw_parts = clean_raw.split("|||")
+        else:
+            raw_parts = re.split(r'(?<=[.!?]) +', clean_raw)
+
+        messages_to_send = [p.strip() for p in raw_parts if p.strip()]
+        full_assistant_reply = ""
+
+        for part_text in messages_to_send:
+            sticker_to_send = None
+
+            match = re.search(r'\[STICKER:1\]', part_text)
+            if match:
+                if random.random() < 0.25:
+                    sticker_to_send = STICKERS_MAP.get("1")
+                part_text = re.sub(r'\[STICKER:1\]', '', part_text).strip()
+
+            if not part_text and not sticker_to_send:
+                continue
+
+            await context.bot.send_chat_action(
+                chat_id=chat_id, 
+                action="typing", 
+                business_connection_id=business_connection_id
+            )
+            
+            typing_time = max(0.4, len(part_text) * 0.05)
+            await asyncio.sleep(min(typing_time, 1.5))
+
+            if part_text:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=part_text,
+                    business_connection_id=business_connection_id,
+                )
+                full_assistant_reply += part_text + " "
+
+            if sticker_to_send:
+                await asyncio.sleep(0.3)
+                await context.bot.send_sticker(
+                    chat_id=chat_id,
+                    sticker=sticker_to_send,
+                    business_connection_id=business_connection_id,
+                )
+
+            await asyncio.sleep(random.uniform(0.3, 0.7))
+
+        CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
+
+    except Exception as e:
+        print("\n❌ ОШИБКА BUSINESS:", repr(e))
+
+# ============================================================
 # 💼 BUSINESS MESSAGE
 # ============================================================
 
@@ -111,85 +202,30 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = msg.chat.id
     user_text = msg.text or "[Медиа/Стикер]"
 
-    if chat_id not in CHAT_HISTORY:
-        CHAT_HISTORY[chat_id] = []
-
-    CHAT_HISTORY[chat_id].append({"role": "user", "content": user_text})
-    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
-
-    try:
-        # Реакция ❤️ с шансом 50%
-        if random.random() < 0.5:
-            await asyncio.sleep(random.uniform(0.3, 0.8))
-            try:
-                await context.bot.set_message_reaction(
-                    chat_id=chat_id,
-                    message_id=msg.message_id,
-                    reaction=[ReactionTypeEmoji("❤️")],
-                )
-            except Exception as rx_err:
-                print("⚠️ Ошибка реакции:", rx_err)
-
-        await asyncio.sleep(random.uniform(0.8, 1.5))
-
-        raw_answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id]).strip()
-        clean_raw = raw_answer.replace("\n", " ")
-
-        if "|||" in clean_raw:
-            raw_parts = clean_raw.split("|||")
-        else:
-            raw_parts = re.split(r'(?<=[.!?]) +', clean_raw)
-
-        messages_to_send = [p.strip() for p in raw_parts if p.strip()]
-
-        full_assistant_reply = ""
-
-        for part_text in messages_to_send:
-            sticker_to_send = None
-
-            # Проверяем метку стикера
-            match = re.search(r'\[STICKER:1\]', part_text)
-            if match:
-                # Дополнительный случайный фильтр в коде (стикер уйдет только с вероятностью 25%)
-                if random.random() < 0.25:
-                    sticker_to_send = STICKERS_MAP.get("1")
-                part_text = re.sub(r'\[STICKER:1\]', '', part_text).strip()
-
-            if not part_text and not sticker_to_send:
-                continue
-
-            await context.bot.send_chat_action(
-                chat_id=chat_id, 
-                action="typing", 
-                business_connection_id=msg.business_connection_id
+    # Реакция ❤️ ставится сразу на входящее сообщение
+    if random.random() < 0.5:
+        try:
+            await context.bot.set_message_reaction(
+                chat_id=chat_id,
+                message_id=msg.message_id,
+                reaction=[ReactionTypeEmoji("❤️")],
             )
-            
-            typing_time = max(0.4, len(part_text) * 0.05)
-            await asyncio.sleep(min(typing_time, 1.5))
+        except Exception as rx_err:
+            print("⚠️ Ошибка реакции:", rx_err)
 
-            if part_text:
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=part_text,
-                    business_connection_id=msg.business_connection_id,
-                )
-                full_assistant_reply += part_text + " "
+    # Сохраняем входящее сообщение в буфер
+    if chat_id not in PENDING_MESSAGES:
+        PENDING_MESSAGES[chat_id] = []
+    PENDING_MESSAGES[chat_id].append(user_text)
 
-            if sticker_to_send:
-                await asyncio.sleep(0.3)
-                await context.bot.send_sticker(
-                    chat_id=chat_id,
-                    sticker=sticker_to_send,
-                    business_connection_id=msg.business_connection_id,
-                )
+    # Если уже был запущен таймер ожидания — отменяем его
+    if chat_id in PENDING_TASKS:
+        PENDING_TASKS[chat_id].cancel()
 
-            await asyncio.sleep(random.uniform(0.3, 0.7))
-
-        CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
-
-    except Exception as e:
-        print("\n❌ ОШИБКА BUSINESS:", repr(e))
-
+    # Запускаем новый таймер на 5 секунд
+    PENDING_TASKS[chat_id] = asyncio.create_task(
+        process_delayed_reply(chat_id, msg.business_connection_id, context)
+    )
 
 async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
@@ -201,7 +237,6 @@ async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(clean_answer)
     except Exception as e:
         print("\n❌ ОШИБКА DIRECT:", repr(e))
-
 
 async def handle_business_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.business_connection:
@@ -250,3 +285,7 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
+```
+
+Теперь ты спокойно можешь слать хоть 5 сообщений подряд — он дождется, пока ты закончишь говорить (5 секунд тишины с твоей стороны), прочитает весь твой монолог целиком и ответит по существу!
