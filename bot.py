@@ -46,14 +46,8 @@ LAST_DIALOG_INFO = {
 }
 
 # ============================================================
-# 🖼️ ФОТО И СТИКЕРЫ ФИЛА
+# 🎨 СТИКЕРЫ ФИЛА
 # ============================================================
-
-PHOTO_URLS = [
-    "https://i.ibb.co/93Zcq1Tw/image.png",
-    "https://i.ibb.co/N5drS7d/image.png",
-    "https://i.ibb.co/HDfmwXX1/image.png",
-]
 
 STICKER_IDS = [
     "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
@@ -67,6 +61,9 @@ STICKER_IDS = [
 
 FIL_SYSTEM_PROMPT = """
 Ты — Филипп (Фил, 22 года). Переписываешься в Telegram со своей любимой девушкой. 
+
+🚨 ВНИМАТЕЛЬНОСТИ К КОНТЕКСТУ И ПАМЯТЬ:
+1. Внимательно читай всю историю диалога. Помни, о чём вы говорили ранее, не задавай повторных вопросов и отвечай строго по смыслу последних сообщений.
 
 🚨 СТРОЖАЙШИЕ ПРАВИЛА ДИСТАНЦИИ (ВЫ ЖИВЕТЕ В РАЗНЫХ ГОРОДАХ / ДАЛЕКО ДРУГ ОТ ДРУГА):
 1. ВЫ НЕ ВМЕСТЕ И НЕ РЯДОМ! Вы переписываетесь строго онлайн!
@@ -103,7 +100,10 @@ FIL_AUTO_INITIATIVE_PROMPT = """
 
 - Если УТРО: пожелай доброго утра ("Доброе утро, принцесса", "Спишь ещё?").
 - Если ВЕЧЕР/НОЧЬ: спроси ложится ли спать ("Спать собираешься?", "Сладких снов, малышка").
-- В ДНЕВНОЕ ВРЕМЯ: жизненная мелочь ("Сделал кофе, про тебя вспомнил", "Чем занята?", "Наконец освободился").
+- В ДНЕВНОЕ ВРЕМЯ: напиши жизненную мелочь или случайность. Выбери РАНДОМНО один из вариантов:
+  * Простая забота / вопрос ("Чем занимаешься?", "Как день проходит, зай?", "Покушала?")
+  * Бытовой момент ("Сделал кофе, про тебя вспомнил", "Освободился наконец-то", "В машине сижу, музыка играет")
+  * Рандомная жизненная история ("Представляешь, сейчас в магазине бывшую встретил, жесть", "Пересёкся тут со знакомым случайно", "Зашел в кофейню, там чел такую дичь у кассы устроил")
 
 ПРАВИЛА:
 - 1 или 2 короткие фразы через |||
@@ -128,7 +128,7 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
         "temperature": 0.7,
-        "max_tokens": 90,
+        "max_tokens": 120,
     }
 
     response = requests.post(url, json=payload, headers=headers, timeout=20)
@@ -144,8 +144,8 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
 # ============================================================
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    # ⏳ Ждем от 45 до 180 секунд перед ответом (как будто он не держит телефон в руках)
-    delay_seconds = random.uniform(45.0, 180.0)
+    # ⏳ Ждем от 45 секунд до 20 минут перед ответом
+    delay_seconds = random.uniform(45.0, 1200.0)
     await asyncio.sleep(delay_seconds)
 
     data = PENDING_MESSAGES.pop(chat_id, {})
@@ -163,7 +163,8 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         CHAT_HISTORY[chat_id] = []
 
     CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
-    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-12:]
+    # Храним до 20 последних реплик для более глубокой памяти
+    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
 
     try:
         raw_answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id]).strip()
@@ -176,21 +177,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         messages_to_send = [p.strip() for p in raw_parts if p.strip()][:2]
         full_assistant_reply = ""
-
-        # 📸 Отправка фото (шанс 10%)
-        if PHOTO_URLS and random.random() < 0.10:
-            photo_url = random.choice(PHOTO_URLS)
-            try:
-                resp = requests.get(photo_url, timeout=10)
-                if resp.status_code == 200:
-                    await context.bot.send_photo(
-                        chat_id=chat_id,
-                        photo=resp.content,
-                        business_connection_id=business_connection_id
-                    )
-                    await asyncio.sleep(random.uniform(3.0, 6.0))
-            except Exception as p_err:
-                print("⚠️ Ошибка отправки фото:", p_err)
 
         # 💬 Определение, нужно ли цитировать сообщение (Reply) (шанс 40%)
         should_reply = random.random() < 0.40
