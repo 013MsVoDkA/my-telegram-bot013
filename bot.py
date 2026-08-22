@@ -147,7 +147,7 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(отправила голосовое/кружок, произошла ошибка транскрипции)"
 
 async def determine_delay_by_context(history: list) -> float:
-    """Оценивает контекст и определяет паузу перед ответом"""
+    """Оценивает контекст и определяет УСКОРЕННУЮ паузу перед ответом"""
     prompt = """
     Проанализируй последние сообщения Фила (assistant) и его девушки (user).
     Определи, насколько Фил сейчас занят, и выбери цифру от 1 до 3:
@@ -160,14 +160,14 @@ async def determine_delay_by_context(history: list) -> float:
     try:
         level_str = ask_ai(prompt, history[-5:]).strip()
         if "1" in level_str:
-            return random.uniform(45.0, 600.0)    # 45 сек - 10 мин
+            return random.uniform(20.0, 180.0)    # 20 сек - 3 мин (Быстро!)
         elif "3" in level_str:
-            return random.uniform(1200.0, 2700.0) # 20 мин - 45 мин
+            return random.uniform(420.0, 900.0)  # 7 мин - 15 мин (Максимум!)
         else:
-            return random.uniform(600.0, 1200.0)  # 10 мин - 20 мин
+            return random.uniform(180.0, 420.0)  # 3 мин - 7 мин
     except Exception as e:
         print("⚠️ Ошибка определения контекста задержки:", e)
-        return random.uniform(180.0, 600.0)
+        return random.uniform(30.0, 180.0)
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     history = CHAT_HISTORY.get(chat_id, [])
@@ -216,7 +216,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 action="typing", 
                 business_connection_id=business_connection_id
             )
-            await asyncio.sleep(random.uniform(3.0, 6.0))
+            await asyncio.sleep(random.uniform(2.0, 4.0))
 
             reply_to_id = last_msg_id if (should_reply and i == 0) else None
 
@@ -228,7 +228,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             )
             full_assistant_reply += part_text + " "
 
-            await asyncio.sleep(random.uniform(2.0, 5.0))
+            await asyncio.sleep(random.uniform(2.0, 4.0))
 
         if STICKER_IDS and random.random() < 0.15:
             sticker_id = random.choice(STICKER_IDS)
@@ -326,7 +326,7 @@ async def auto_initiative_loop(app):
                         action="typing", 
                         business_connection_id=business_conn_id
                     )
-                    await asyncio.sleep(random.uniform(3.0, 5.0))
+                    await asyncio.sleep(random.uniform(2.0, 4.0))
 
                     await app.bot.send_message(
                         chat_id=chat_id,
@@ -334,7 +334,7 @@ async def auto_initiative_loop(app):
                         business_connection_id=business_conn_id,
                     )
                     full_assistant_reply += part_text + " "
-                    await asyncio.sleep(3.0)
+                    await asyncio.sleep(2.0)
 
                 if chat_id not in CHAT_HISTORY:
                     CHAT_HISTORY[chat_id] = []
