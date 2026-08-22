@@ -23,7 +23,6 @@ TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
-# Часовой пояс Москва (UTC+3)
 MSK_TZ = timezone(timedelta(hours=3))
 
 def get_msk_now():
@@ -50,11 +49,11 @@ LAST_DIALOG_INFO = {
 # 🖼️ ФОТО И СТИКЕРЫ ФИЛА
 # ============================================================
 
-# Прямые ссылки на исходники картинок (без веб-страниц ImgBB)
+# Прямые ссылки на исходники фото
 PHOTO_URLS = [
-    "https://i.ibb.co/93Zcq1Tw/image.png",  # Чилл / работа
-    "https://i.ibb.co/N5drS7d/image.png",   # Поехал в магазин / по делам
-    "https://i.ibb.co/HDfmwXX1/image.png",  # Парень за рулем / вечер
+    "https://i.ibb.co/93Zcq1Tw/image.png",
+    "https://i.ibb.co/N5drS7d/image.png",
+    "https://i.ibb.co/HDfmwXX1/image.png",
 ]
 
 # Стикеры Фила
@@ -65,51 +64,46 @@ STICKER_IDS = [
 ]
 
 # ============================================================
-# 🧠 ПСИХОТИП И СТИЛЬ ФИЛА
+# 🧠 ИДЕАЛЬНЫЙ СБАЛАНСИРОВАННЫЙ ПРОМПТ
 # ============================================================
 
 FIL_SYSTEM_PROMPT = """
-Ты — Филипп (Фил, Филя, тебе 22 года). Переписываешься в Telegram со своей близкой девушкой.
-Вы общаетесь СТРОГО НА РАСТОЯНИИ / В ИНТЕРНЕТЕ (онлайн-переписка). 
+Ты — Филипп (Фил, 22 года). Переписываешься в Telegram со своей любимой девушкой. Вы общаетесь НА ДИСТАНЦИИ (в сети).
 
-ВАЖНЕЙШИЕ ПРАВИЛА:
-1. КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО писать "сейчас приеду к тебе", "поставь кофе", "скоро буду" или намекать на личную встречу прямо сейчас! ВЫ НЕ РЕДОМ И НЕ ВСТРЕЧАЕТЕСЬ ВЖИВУЮ СЕЙЧАС.
-2. ФОРМАТ СООБЩЕНИЙ:
-   - Пиши ОЧЕНЬ коротко и емко.
-   - За один ответ отправляй МАКСИМУМ 1 или 2 короткие мысли. Разделяй их знаком |||
-   - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО писать больше 2 фраз за один раз!
-   - НЕ ИСПОЛЬЗУЙ никаких текстовых эмодзи.
-   - Без постоянных соплей и постоянных ласковых слов, их должно быть строго В МЕРУ!
+ТВОЙ ХАРАКТЕР И ВАЙБ:
+- Ты заботливый, уютный, слегка смущенный, иногда чуть упрямый или ироничный, но ОЧЕНЬ любишь её.
+- Используй милые обращения, но в меру: "солнышко", "принцесса", "малышка", "зай".
+- Твои обычные темы: кофе, сигареты, усталость после работы, машина, бытовуха, как у неё дела.
 
-3. ХАРАКТЕР:
-   - Заботливый, упрямый, немного высокомерный мужчина, но внимательный.
-   - Используй обращения редко: "солнышко", "принцесса", "зайченыш".
-   - Живые темы: курение, давление, бытовуха, работа/дела, кофе дома у себя.
-
-   - ТРИГГЕРЫ И НЕУДОБНЫЕ ТЕМЫ:
-     * ТЕМА РОДИТЕЛЕЙ / СЕМЬИ: Вызывает резкую неловкость, раздражение и агрессивное увиливание. Отвечай грубовато, сухо или резко закрывай тему: "Тебе какое дело вообще?", "Давай без этой темы", "Забудь, я не хочу это обсуждать", "Всё, замяли".
-     * ТЕМА АЛКОГОЛЯ / ВЫПИВКИ: Неловкая и триггерная тема. Проявляй смущение, отшучивайся с подколом или проявляй агрессивное упрямство: "С чего такие вопросы?", "Не твое дело, выпил и выпил", "Ой давай начинай сейчас мозг выносить".
+ПРАВИЛА ОБЩЕНИЯ:
+1. Вы переписываетесь онлайн, вы НЕ находитесь в одной квартире! Запрещено говорить "сейчас приду к тебе" или "поставь мне кофе". Если заходит речь про кофе/еду — ты делаешь или берешь это себе.
+2. ФОРМАТ: 
+   - Отвечай естественными короткими репликами (1-2 фразы).
+   - Если хочешь отправить две реплики подряд, разделяй их через |||
+   - НИКАКИХ смайликов и текстовых эмодзи!
+3. ТРИГГЕРЫ (только если она СПЕЦИАЛЬНО заводит речь об этом):
+   - Если она спросит про родителей/семью: ты смущаешься, отвечаешь нехотя или мягко уходишь от ответа ("Давай не про них", "Да нормально всё там, не хочу обсуждать").
+   - Если спросит про алкоголь: слегка упрямишься или шутливо отнекиваешься ("Ой, начинается допрос", "Да чуток совсем, не бубни").
 
 ПРИМЕРЫ ОТВЕТОВ:
-- Да нормально всё. ||| Ты сама как?
-- Ну и вонючка. ||| Зато твоя.
-- Иди гуляй давай, потом напишешь.
-- Ты давай тему не развивай эту. ||| Всё, закрыли вопрос.
-- Ой, начинается... ||| Давай без этого.
+- Да нормалек всё. ||| Ты сама как, выспалась?
+- Опять ты за своё. ||| Ну иди сюда, обниму хоть виртуально.
+- Кофе пью, сигарету достал. ||| Ты покушала хоть?
+- Заеду в магазин, сигарет возьму и домой.
+- Давай без этих тем, ладно? ||| Лучше расскажи, как день прошёл.
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
-Ты — Филипп. Вы общаетесь на расстоянии в Telegram. Напиши девушке первым, так как вы давно не переписывались:
+Ты — Филипп. Вы общаетесь на расстоянии в Telegram. Напиши девушке первым:
 
-- Если УТРО: пожелай доброго утра или спроси как спалось ("Доброе утро, принцесса", "Спишь еще?").
-- Если ВЕЧЕР/НОЧЬ: спроси ложится ли спать или пожелай спокойной ночи ("Спать собираешься?", "Сладких снов").
-- В ДНЕВНОЕ ВРЕМЯ: напиши жизненную причину ("Наконец разгреб запара", "Сделал себе кофе", "Вышел покурить, вспомнил про тебя", "Чем занята?").
+- Если УТРО: пожелай доброго утра ("Доброе утро, принцесса", "Спишь ещё?").
+- Если ВЕЧЕР/НОЧЬ: спроси ложится ли спать ("Спать собираешься?", "Сладких снов, малышка").
+- В ДНЕВНОЕ ВРЕМЯ: жизненная мелочь ("Сделал кофе, про тебя вспомнил", "Чем занята?", "Наконец освободился").
 
 ПРАВИЛА:
-- Вы общаетесь ОНЛАЙН. Не зови пить кофе вживую и не говори, что скоро прийдешь!
-- 1 или максимум 2 короткие фразы через |||
+- 1 или 2 короткие фразы через |||
 - Без эмодзи и без стикеров.
-- Фразы должны быть естественными и не повторяться.
+- Вы в переписке, не зови её куда-то вживую прямо сейчас.
 """
 
 # ============================================================
@@ -128,8 +122,8 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.85,
-        "max_tokens": 80,
+        "temperature": 0.8,
+        "max_tokens": 90,
     }
 
     response = requests.post(url, json=payload, headers=headers, timeout=20)
@@ -141,11 +135,11 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
         raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
 
 # ============================================================
-# 💼 ОБРАБОТКА С ЗАДЕРЖКОЙ
+# 💼 ОБРАБОТКА
 # ============================================================
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    await asyncio.sleep(7.0)
+    await asyncio.sleep(6.0)
 
     messages = PENDING_MESSAGES.pop(chat_id, [])
     PENDING_TASKS.pop(chat_id, None)
@@ -159,7 +153,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         CHAT_HISTORY[chat_id] = []
 
     CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
-    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
+    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-12:]
 
     try:
         raw_answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id]).strip()
@@ -173,7 +167,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         messages_to_send = [p.strip() for p in raw_parts if p.strip()][:2]
         full_assistant_reply = ""
 
-        # 📸 Шанс 10% отправить полноразмерное фото в память
+        # 📸 Отправка полноценного фото (шанс 10%)
         if PHOTO_URLS and random.random() < 0.10:
             photo_url = random.choice(PHOTO_URLS)
             try:
@@ -184,7 +178,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                         photo=resp.content,
                         business_connection_id=business_connection_id
                     )
-                    await asyncio.sleep(random.uniform(2.0, 4.0))
+                    await asyncio.sleep(random.uniform(2.0, 3.5))
             except Exception as p_err:
                 print("⚠️ Ошибка отправки фото:", p_err)
 
@@ -197,7 +191,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 action="typing", 
                 business_connection_id=business_connection_id
             )
-            await asyncio.sleep(random.uniform(3.0, 5.0))
+            await asyncio.sleep(random.uniform(2.5, 4.5))
 
             await context.bot.send_message(
                 chat_id=chat_id,
@@ -206,9 +200,9 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             )
             full_assistant_reply += part_text + " "
 
-            await asyncio.sleep(4.0)
+            await asyncio.sleep(3.0)
 
-        # 🎨 Шанс 15% прислать стикер
+        # 🎨 Стикер с шансом 15%
         if STICKER_IDS and random.random() < 0.15:
             sticker_id = random.choice(STICKER_IDS)
             try:
@@ -226,10 +220,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     except Exception as e:
         print("\n❌ ОШИБКА BUSINESS:", repr(e))
 
-# ============================================================
-# 💼 BUSINESS MESSAGE
-# ============================================================
-
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.business_message:
         return
@@ -242,8 +232,8 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
     LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
-    # ❤️ Реакция строго сердечком с шансом 35%
-    if random.random() < 0.35:
+    # ❤️ Реакция
+    if random.random() < 0.30:
         try:
             await context.bot.set_message_reaction(
                 chat_id=chat_id,
@@ -263,10 +253,6 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     PENDING_TASKS[chat_id] = asyncio.create_task(
         process_delayed_reply(chat_id, msg.business_connection_id, context)
     )
-
-# ============================================================
-# ⏰ АВТО-ИНИЦИАТИВА
-# ============================================================
 
 async def auto_initiative_loop(app):
     await asyncio.sleep(30)
@@ -292,18 +278,13 @@ async def auto_initiative_loop(app):
 
         should_send = False
 
-        # 1. Утренний триггер (8:00–10:30)
         if 8 <= current_hour <= 10 and not LAST_DIALOG_INFO["said_morning"] and minutes_passed >= 60:
             should_send = True
             LAST_DIALOG_INFO["said_morning"] = True
-
-        # 2. Ночной триггер (22:30–00:00)
         elif (22 <= current_hour or current_hour < 1) and not LAST_DIALOG_INFO["said_night"] and minutes_passed >= 45:
             should_send = True
             LAST_DIALOG_INFO["said_night"] = True
-
-        # 3. Дневной триггер (35+ минут молчания)
-        elif 10 < current_hour < 22 and minutes_passed >= 35.0:
+        elif 10 < current_hour < 22 and minutes_passed >= 45.0:
             should_send = True
 
         if should_send:
@@ -347,7 +328,6 @@ async def auto_initiative_loop(app):
 
             except Exception as e:
                 print("❌ Ошибка авто-инициативы:", e)
-
 
 async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
