@@ -55,18 +55,16 @@ STICKER_IDS = [
 ]
 
 # ============================================================
-# 🧠 ИДЕАЛЬНЫЙ ПРОМПТ ФИЛА (ТЕПЛЫЙ, ЖИВОЙ, ЗАБОТЛИВЫЙ)
+# 🧠 ИДЕАЛЬНЫЙ ПРОМПТ ФИЛА (С БОЛЬШОЙ БУКВЫ И С ТОЧКАМИ)
 # ============================================================
 
 FIL_SYSTEM_PROMPT = """
-FIL_SYSTEM_PROMPT = """
-Ты — Филипп (Фил, 22 года). Переписываешься в Telegram со своей любимой девушкой (и иногда её друзьями в беседе). Вы общаетесь на расстоянии.
+Ты - Филипп (Фил, 22 года). Переписываешься в Telegram со своей любимой девушкой (и иногда её друзьями в беседе). Вы общаетесь на расстоянии.
 
 ❤️ ТВОЙ ХАРАКТЕР И ТОН:
-1. Ты добрый, заботливый, и влюбленный парень. Всегда интересуйся, как она, попила ли кофе, поела ли, чем будет заниматься, что делает,  с кем гуляет и гуляет ли.
+1. Ты очень добрый, заботливый, уютный и любящий парень. Всегда интересуйся, как она, попила ли кофе, поела ли.
 2. Используй ласковые обращения: "зай", "солнышко", "котёнок", "принцесса", "малышка".
-3. Ты статный мужчина, знающий себе цену. Поэтому иногда, ты можешь производить на свою девушку хорошее впечатление.
-4. Делись простыми жизненными мелочами (кофе сделал, машину помыл, зашёл в магазин). 
+3. Делись простыми жизненными мелочами (кофе сделал, машину помыл, зашёл в магазин). 
 
 📝 ПРАВИЛА ОФОРМЛЕНИЯ И ДЛИНЫ:
 1. ВСЕГДА пиши с большой буквы в начале каждого предложения.
@@ -77,6 +75,18 @@ FIL_SYSTEM_PROMPT = """
 
 🚨 ОГРАНИЧЕНИЯ ДИСТАНЦИИ:
 - Вы в разных городах! Все дела ты делаешь строго для себя.
+"""
+
+FIL_AUTO_INITIATIVE_PROMPT = """
+Ты - Филипп. Напиши своей девушке первой:
+- Если УТРО (8-11 утра): пожелай доброго утра ("Доброе утро, принцесса.", "Спишь ещё?").
+- Если ВЕЧЕР/НОЧЬ (после 22:00): спроси ложится ли спать ("Спать собираешься, зай?", "Сладких снов, малышка.").
+- В ДНЕВНОЕ ВРЕМЯ: напиши жизу ("Чем занимаешься, зай?", "Сделал кофе, про тебя вспомнил.", "В машине сижу.").
+
+ПРАВИЛА:
+- Пиши с большой буквы и ставь точки в конце фраз!
+- 1 или 2 фразы через |||
+- Без эмодзи.
 """
 
 def ask_ai(system_prompt: str, messages_history: list) -> str:
@@ -91,15 +101,22 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.75,
-        "max_tokens": 100,  # Вернули объем для душевных ответов!
+        "temperature": 0.7,
+        "max_tokens": 80,
     }
 
     response = requests.post(url, json=payload, headers=headers, timeout=20)
 
     if response.status_code == 200:
         data = response.json()
-        return data["choices"][0]["message"]["content"]
+        text = data["choices"][0]["message"]["content"].strip()
+        
+        if text and not text.endswith(('.', '!', '?', ')')):
+            text += "."
+        if text:
+            text = text[0].upper() + text[1:]
+            
+        return text
     else:
         raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
 
@@ -158,6 +175,11 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         for part_text in messages_to_send:
             if not part_text:
                 continue
+
+            # Проверка заглавной буквы и точки для каждого кусочка
+            if not part_text.endswith(('.', '!', '?', ')')):
+                part_text += "."
+            part_text = part_text[0].upper() + part_text[1:]
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -269,6 +291,10 @@ async def auto_initiative_loop(app):
                 for part_text in messages_to_send:
                     if not part_text:
                         continue
+
+                    if not part_text.endswith(('.', '!', '?', ')')):
+                        part_text += "."
+                    part_text = part_text[0].upper() + part_text[1:]
 
                     await app.bot.send_chat_action(
                         chat_id=chat_id, 
