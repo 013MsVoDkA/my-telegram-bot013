@@ -17,7 +17,7 @@ from telegram.ext import (
 )
 
 # ==============================
-# 🔑 КЛЮЧИ И НАСТРОЙКИ
+# КЛЮЧИ И НАСТРОЙКИ
 # ==============================
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -46,7 +46,7 @@ LAST_DIALOG_INFO = {
 }
 
 # ============================================================
-# 🎨 СТИКЕРЫ ФИЛА
+# СТИКЕРЫ ФИЛА
 # ============================================================
 
 STICKER_IDS = [
@@ -56,32 +56,31 @@ STICKER_IDS = [
 ]
 
 # ============================================================
-# 🧠 ПРОМПТ ФИЛА
+# ПРОМПТ ФИЛА (БЕЗ СОПЛЕЙ И БЕЗ ЭМОДЗИ)
 # ============================================================
 
 FIL_SYSTEM_PROMPT = """
-Ты — Филипп (Фил, 22 года). Переписываешься в Telegram со своей девушкой. Вы общаетесь на расстоянии.
+Ты - Филипп (Фил, 22 года). Переписываешься в Telegram со своей девушкой. Вы общаетесь на расстоянии.
 
-🖤 ТВОЙ ХАРАКТЕР И ВАЙБ:
-1. Ты нормальный, адекватный парень. Общайся просто, спокойно, без лишних соплей, гиперопеки и допросов ("запей водой таблетку", "хорошо, что выпила", "ты точно в порядке" — ЗАПРЕЩЕНО).
+ТВОЙ ХАРАКТЕР И ВАЙБ:
+1. Ты нормальный, адекватный парень. Общайся просто, спокойно, без лишних соплей, гиперопеки и допросов ("запий водой", "хорошо что выпила", "ты точно в порядке" - ЗАПРЕЩЕНО).
 2. Относись к ней тепло, но сдержанно. Иногда используй "зай" или "малышка", но не в каждом предложении!
 3. Отвечай как реальный парень в ТГ: просто, жизненно, иногда с иронией, без лишней драмы.
-4. Допускаются шутки 18+
 
-📝 ПРАВИЛА ОФОРМЛЕНИЯ:
+ПРАВИЛА ОФОРМЛЕНИЯ:
 1. ВСЕГДА пиши с большой буквы в начале каждого предложения.
 2. ВСЕГДА ставь точку в конце каждого предложения.
 3. Разделяй мысли знаками ||| (чтобы отправлялось 2 коротких сообщения, а не одно длинное).
 4. Никаких эмодзи и сопливых наставлений.
-"""
-🚨 ОГРАНИЧЕНИЯ ДИСТАНЦИИ:
+
+ОГРАНИЧЕНИЯ ДИСТАНЦИИ:
 - Вы в разных городах! Все дела ты делаешь строго для себя.
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
 Ты - Филипп. Напиши своей девушке первой:
-- Если УТРО (8-11 утра): пожелай доброго утра ("Доброе утро, принцесса. ||| Спишь ещё?").
-- Если ВЕЧЕР/НОЧЬ (после 22:00): спроси ложится ли спать ("Спать собираешься, зай? ||| Сладких снов, малышка.").
+- Если УТРО (8-11 утра): пожелай доброго утра ("Доброе утро. ||| Спишь ещё?").
+- Если ВЕЧЕР/НОЧЬ (после 22:00): спроси ложится ли спать ("Спать собираешься, зай? ||| Сладких снов.").
 - В ДНЕВНОЕ ВРЕМЯ: напиши жизу ("Чем занимаешься, зай? ||| Сделал кофе, про тебя вспомнил.").
 
 ПРАВИЛА:
@@ -135,13 +134,11 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое сообщение)"
 
 def split_text_into_messages(raw_text: str) -> list:
-    """ Умное разделение ответа на 2 отдельных сообщения """
     clean_raw = raw_text.replace("\n", " ")
     
     if "|||" in clean_raw:
         parts = clean_raw.split("|||")
     else:
-        # Если ИИ забыл |||, режем по точкам/вопросам
         sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_raw) if s.strip()]
         if len(sentences) >= 2:
             parts = [sentences[0], " ".join(sentences[1:])]
@@ -210,13 +207,13 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                     business_connection_id=business_connection_id
                 )
             except Exception as st_err:
-                print("⚠️ Ошибка отправки стикера:", st_err)
+                print("Ошибка отправки стикера:", st_err)
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
     except Exception as e:
-        print("\n❌ ОШИБКА BUSINESS:", repr(e))
+        print("\nОШИБКА BUSINESS:", repr(e))
 
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.business_message:
@@ -308,7 +305,7 @@ async def auto_initiative_loop(app):
                 LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
             except Exception as e:
-                print("❌ Ошибка авто-инициативы:", e)
+                print("Ошибка авто-инициативы:", e)
 
 async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
@@ -319,11 +316,11 @@ async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
         clean_answer = answer.replace("|||", " ")
         await msg.reply_text(clean_answer)
     except Exception as e:
-        print("\n❌ ОШИБКА DIRECT:", repr(e))
+        print("\nОШИБКА DIRECT:", repr(e))
 
 async def handle_business_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.business_connection:
-        print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
+        print(f"\nBUSINESS CONNECTION: ID {update.business_connection.id}")
 
 async def handle_ping(request):
     return web.Response(text="Bot is live!")
