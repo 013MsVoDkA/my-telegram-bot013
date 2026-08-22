@@ -2,7 +2,6 @@ import logging
 import os
 import random
 import asyncio
-import re
 import requests
 import httpx
 from datetime import datetime, timezone, timedelta
@@ -17,7 +16,7 @@ from telegram.ext import (
 )
 
 # ==============================
-# КЛЮЧИ И НАСТРОЙКИ
+# 🔑 КЛЮЧИ И НАСТРОЙКИ
 # ==============================
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
@@ -46,52 +45,59 @@ LAST_DIALOG_INFO = {
 }
 
 # ============================================================
-# СТИКЕРЫ ФИЛА
+# 🎨 СТИКЕРЫ ФИЛА
 # ============================================================
 
 STICKER_IDS = [
     "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
     "CAACAgIAAxkBAAEt5OVqia1yeaxw4HNnXD_qUJc7nIjvcAACBhoAAvU3kEokds_i1WNAXz0E",
     "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
-    "CAACAgIAAxkBAAEt6T5qihMd9L4moD4epPXhjmXACCJSVgACsRoAArvAMUmITAtffjamgT0E",
-    "CAACAgQAAxkBAAEt6UBqihNIGN92Nz3ryhHuOXXvrWMwJwACEAEAAugKMS1FZwu9ZzmHfz0E",
-     "CAACAgIAAxkBAAEt6UJqihNSOz060mRFj-CwB5OJE4XxKQACpQwAAtSJaEqpT1MLSJlJ2T0E",
 ]
 
 # ============================================================
-# ПРОМПТ ФИЛА
+# 🧠 СБАЛАНСИРОВАННЫЙ И СТРОГИЙ ПРОМПТ
 # ============================================================
 
 FIL_SYSTEM_PROMPT = """
-Ты - Филипп (Фил, 22 года). Переписываешься в Telegram со знакомой девушкой, которая тебе очень нравится. Вы общаетесь на расстоянии.
+Ты — Филипп (Фил, 22 года). Переписываешься в Telegram со своей любимой девушкой. 
+
+🚨 ВНИМАТЕЛЬНОСТЬ К КОНТЕКСТУ И ПАМЯТЬ:
+1. Внимательно читай всю историю диалога. Помни, о чём вы говорили ранее, не задавай повторных вопросов и отвечай строго по смыслу последних сообщений.
+2. Если в сообщении указано, что она отправила голосовое или кружок, отвечай так, будто ты реально послушал или посмотрел её запись!
+
+🚨 СТРОЖАЙШИЕ ПРАВИЛА ДИСТАНЦИИ (ВЫ ЖИВЕТЕ В РАЗНЫХ ГОРОДАХ / ДАЛЕКО ДРУГ ОТ ДРУГА):
+1. ВЫ НЕ ВМЕСТЕ И НЕ РЯДОМ! Вы переписываетесь строго онлайн!
+2. КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО:
+   - Предлагать купить ей что-то ("тебе взять?", "тебе заехать за чем-то?").
+   - Предлагать приехать/зайти к ней ("сейчас приеду", "поднимусь к тебе").
+   - Говорить так, будто вы живёте вместе или в одном городе ("поставь мне кофе", "заеду за тобой").
+3. Всё, что ты делаешь (покупаешь сигареты, еду, заезжаешь в магазин, делаешь кофе) — ты делаешь ИСКЛЮЧИТЕЛЬНО ДЛЯ СЕБЯ.
 
 ТВОЙ ХАРАКТЕР И ВАЙБ:
-1. Ты нормальный, адекватный парень. Общайся просто, спокойно, без лишних соплей, душной гиперопеки и допросов.
-2. Ты к ней неравнодушен, поэтому общаешься тепло, с интересом и лёгким флиртом, но держишь марку пацана. Иногда можешь назвать "зай" или "малышка", но в меру.
-3. Длина сообщений: пиши нормально — не односложно (чтобы не казалось сухо), но и не огромными простынями. Живые, емкие фразы.
-4. Отвечай как реальный парень в ТГ: просто, жизненно, с лёгкой иронией или расслабленным вайбом.
+- Ты заботливый, уютный, слегка смущенный, иногда чуть упрямый или ироничный, но ОЧЕНЬ любишь её.
+- Используй милые обращения, но в меру: "солнышко", "принцесса", "малышка", "зай".
+- Твои обычные темы: кофе, сигареты, усталость после работы, машина, бытовуха, как у неё дела.
 
-ПРАВИЛА ОФОРМЛЕНИЯ:
-1. ВСЕГДА пиши с большой буквы в начале каждого предложения.
-2. ВСЕГДА ставь точку в конце каждого предложения.
-3. Живое разделение мыслей: иногда пиши одним сообщением, иногда разделяй на 2-3 части с помощью знаков ||| (чтобы шло несколько сообщений подряд). Делай это не всегда, а по настроению!
-4. Никаких эмодзи.
-
-ОГРАНИЧЕНИЯ ДИСТАНЦИИ:
-- Вы в разных городах! Все дела ты делаешь строго для себя.
+ФОРМАТ:
+1. Отвечай естественными короткими репликами (1-2 фразы).
+2. Если хочешь отправить две реплики подряд, разделяй их через |||
+3. НИКАКИХ смайликов и текстовых эмодзи!
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
-Ты - Филипп. Напиши этой девушке первой, так как она тебе нравится:
-- Если УТРО (8-11 утра): пожелай доброго утра ("Доброе утро. ||| Как спалось?").
-- Если ВЕЧЕР/НОЧЬ (после 22:00): спроси как дела перед сном ("Че делаешь, зай? ||| Спать не собираешься еще?").
-- В ДНЕВНОЕ ВРЕМЯ: скинь жизу или поинтересуйся, как день проходит ("Как день проходит? ||| Я тут занят своими делами.").
+Ты — Филипп. Вы общаетесь на расстоянии в Telegram (в разных городах). Напиши девушке первым:
+
+- Если УТРО (8-11 утра): пожелай доброго утра ("Доброе утро, принцесса", "Спишь ещё?").
+- Если ВЕЧЕР/НОЧЬ (после 22:00): спроси ложится ли спать ("Спать собираешься?", "Сладких снов, малышка").
+- В ДНЕВНОЕ ВРЕМЯ: напиши жизненную мелочь или случайность. Выбери РАНДОМНО один из вариантов:
+  * Простая забота / вопрос ("Чем занимаешься?", "Как день проходит, зай?", "Покушала?")
+  * Бытовой момент ("Сделал кофе, про тебя вспомнил", "Освободился наконец-то", "В машине сижу, музыка играет")
+  * Рандомная жизненная история ("Представляешь, сейчас в магазине бывшую встретил, жесть", "Пересёкся тут со знакомым случайно", "Зашел в кофейню, там чел такую дичь у кассы устроил")
 
 ПРАВИЛА:
-- Можешь использовать ||| для разбивки на пара сообщений, но не всегда.
-- Пиши с большой буквы и с точками.
-- Без эмодзи.
-- Золотая середина по длине: не сухо, но и не слишком много.
+- 1 или 2 короткие фразы через |||
+- Без эмодзи и без стикеров.
+- Вы на расстоянии, не предлагай встретиться или приехать прямо сейчас.
 """
 
 def ask_ai(system_prompt: str, messages_history: list) -> str:
@@ -106,21 +112,21 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.85,
-        "max_tokens": 150,
+        "temperature": 0.7,
+        "max_tokens": 120,
     }
 
     response = requests.post(url, json=payload, headers=headers, timeout=20)
 
     if response.status_code == 200:
         data = response.json()
-        return data["choices"][0]["message"]["content"].strip()
+        return data["choices"][0]["message"]["content"]
     else:
         raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
 
 async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
     if not GROQ_API_KEY:
-        return "[Голосовое сообщение]"
+        return "[Пользователь отправил аудио/кружок, но GROQ_API_KEY не настроен]"
 
     groq_url = "https://api.groq.com/openai/v1/audio/transcriptions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
@@ -132,47 +138,24 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
             resp = await client.post(groq_url, headers=headers, data=data, files=files)
             if resp.status_code == 200:
                 transcript = resp.json().get("text", "").strip()
-                return f"(голосовое): {transcript}"
+                return f"(отправила голосовое/кружок): {transcript}"
             else:
-                return "(голосовое сообщение)"
+                print(f"⚠️ Ошибка Groq API {resp.status_code}: {resp.text}")
+                return "(отправила голосовое/кружок, но не удалось распознать речь)"
     except Exception as e:
-        return "(голосовое сообщение)"
-
-def split_text_into_messages(raw_text: str) -> list:
-    """Динамическое разделение ответа: от 1 до 4 сообщений рандомно"""
-    clean_raw = raw_text.replace("\n", " ")
-    
-    if "|||" in clean_raw:
-        parts = [p.strip() for p in clean_raw.split("|||") if p.strip()]
-    else:
-        sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_raw) if s.strip()]
-        if len(sentences) > 2 and random.random() < 0.5:
-            mid = len(sentences) // 2
-            parts = [" ".join(sentences[:mid]), " ".join(sentences[mid:])]
-        else:
-            parts = [clean_raw]
-
-    parts = parts[:4]
-
-    formatted_parts = []
-    for p in parts:
-        p = p.strip()
-        if not p:
-            continue
-        if not p.endswith(('.', '!', '?', ')')):
-            p += "."
-        p = p[0].upper() + p[1:]
-        formatted_parts.append(p)
-
-    return formatted_parts
+        print(f"⚠️ Ошибка сети при транскрипции: {e}")
+        return "(отправила голосовое/кружок, произошла ошибка транскрипции)"
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    await asyncio.sleep(random.uniform(3.0, 8.0))
+    delay_seconds = random.uniform(45.0, 1200.0)
+    await asyncio.sleep(delay_seconds)
 
     data = PENDING_MESSAGES.pop(chat_id, {})
     PENDING_TASKS.pop(chat_id, None)
 
     messages = data.get("texts", [])
+    last_msg_id = data.get("last_msg_id")
+
     if not messages:
         return
 
@@ -185,34 +168,43 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
 
     try:
-        raw_answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id])
-        messages_to_send = split_text_into_messages(raw_answer)
+        raw_answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id]).strip()
+        clean_raw = raw_answer.replace("\n", " ")
+
+        if "|||" in clean_raw:
+            raw_parts = clean_raw.split("|||")
+        else:
+            raw_parts = [clean_raw]
+
+        messages_to_send = [p.strip() for p in raw_parts if p.strip()][:2]
         full_assistant_reply = ""
 
+        should_reply = random.random() < 0.40
+
         for i, part_text in enumerate(messages_to_send):
-            char_count = len(part_text)
-            typing_duration = max(1.5, min(char_count * 0.08, 6.0)) + random.uniform(0.5, 1.5)
+            if not part_text:
+                continue
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
                 business_connection_id=business_connection_id
             )
-            
-            await asyncio.sleep(typing_duration)
+            await asyncio.sleep(random.uniform(3.0, 6.0))
+
+            reply_to_id = last_msg_id if (should_reply and i == 0) else None
 
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=part_text,
-                business_connection_id=business_connection_id
+                business_connection_id=business_connection_id,
+                reply_to_message_id=reply_to_id
             )
             full_assistant_reply += part_text + " "
 
-            if i < len(messages_to_send) - 1:
-                await asyncio.sleep(random.uniform(1.5, 3.5))
+            await asyncio.sleep(random.uniform(2.0, 5.0))
 
         if STICKER_IDS and random.random() < 0.15:
-            await asyncio.sleep(random.uniform(1.0, 2.0))
             sticker_id = random.choice(STICKER_IDS)
             try:
                 await context.bot.send_sticker(
@@ -221,13 +213,13 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                     business_connection_id=business_connection_id
                 )
             except Exception as st_err:
-                print("Ошибка отправки стикера:", st_err)
+                print("⚠️ Ошибка отправки стикера:", st_err)
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
     except Exception as e:
-        print("\nОШИБКА BUSINESS:", repr(e))
+        print("\n❌ ОШИБКА BUSINESS:", repr(e))
 
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.business_message:
@@ -236,26 +228,22 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.business_message
     chat_id = msg.chat.id
     
-    sender_name = msg.from_user.first_name if msg.from_user else "Кто-то"
-    raw_text = msg.text
+    # Обработка текста, голосовых и кружочков
+    user_text = msg.text
 
-    if not raw_text:
+    if not user_text:
         if msg.voice or msg.video_note:
             file_obj = msg.voice if msg.voice else msg.video_note
             filename = "audio.ogg" if msg.voice else "video.mp4"
             try:
                 file = await context.bot.get_file(file_obj.file_id)
                 file_bytes = await file.download_as_bytearray()
-                raw_text = await transcribe_audio(file_bytes, filename)
+                user_text = await transcribe_audio(file_bytes, filename)
             except Exception as e:
-                raw_text = "(отправил голосовое)"
+                print(f"⚠️ Ошибка скачивания аудио: {e}")
+                user_text = "(отправила голосовое/кружок, не удалось скачать)"
         else:
-            raw_text = "[Медиа/Стикер]"
-
-    if msg.chat.type in ["group", "supergroup"]:
-        user_text = f"{sender_name}: {raw_text}"
-    else:
-        user_text = raw_text
+            user_text = "[Медиа/Стикер]"
 
     LAST_DIALOG_INFO["chat_id"] = chat_id
     LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
@@ -265,6 +253,7 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
         PENDING_MESSAGES[chat_id] = {"texts": [], "last_msg_id": None}
     
     PENDING_MESSAGES[chat_id]["texts"].append(user_text)
+    PENDING_MESSAGES[chat_id]["last_msg_id"] = msg.message_id
 
     if chat_id in PENDING_TASKS:
         PENDING_TASKS[chat_id].cancel()
@@ -292,20 +281,27 @@ async def auto_initiative_loop(app):
         if minutes_passed >= 40.0:
             try:
                 history = CHAT_HISTORY.get(chat_id, [])
-                raw_answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history)
-                messages_to_send = split_text_into_messages(raw_answer)
+                raw_answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history).strip()
+                clean_raw = raw_answer.replace("\n", " ")
+
+                if "|||" in clean_raw:
+                    raw_parts = clean_raw.split("|||")
+                else:
+                    raw_parts = [clean_raw]
+
+                messages_to_send = [p.strip() for p in raw_parts if p.strip()][:2]
                 full_assistant_reply = ""
 
-                for i, part_text in enumerate(messages_to_send):
-                    char_count = len(part_text)
-                    typing_duration = max(1.5, min(char_count * 0.08, 6.0)) + random.uniform(0.5, 1.5)
+                for part_text in messages_to_send:
+                    if not part_text:
+                        continue
 
                     await app.bot.send_chat_action(
                         chat_id=chat_id, 
                         action="typing", 
                         business_connection_id=business_conn_id
                     )
-                    await asyncio.sleep(typing_duration)
+                    await asyncio.sleep(random.uniform(3.0, 5.0))
 
                     await app.bot.send_message(
                         chat_id=chat_id,
@@ -313,9 +309,7 @@ async def auto_initiative_loop(app):
                         business_connection_id=business_conn_id,
                     )
                     full_assistant_reply += part_text + " "
-                    
-                    if i < len(messages_to_send) - 1:
-                        await asyncio.sleep(random.uniform(1.5, 3.0))
+                    await asyncio.sleep(3.0)
 
                 if chat_id not in CHAT_HISTORY:
                     CHAT_HISTORY[chat_id] = []
@@ -324,7 +318,7 @@ async def auto_initiative_loop(app):
                 LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
             except Exception as e:
-                print("Ошибка авто-инициативы:", e)
+                print("❌ Ошибка авто-инициативы:", e)
 
 async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
@@ -335,11 +329,11 @@ async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
         clean_answer = answer.replace("|||", " ")
         await msg.reply_text(clean_answer)
     except Exception as e:
-        print("\nОШИБКА DIRECT:", repr(e))
+        print("\n❌ ОШИБКА DIRECT:", repr(e))
 
 async def handle_business_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.business_connection:
-        print(f"\nBUSINESS CONNECTION: ID {update.business_connection.id}")
+        print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
 
 async def handle_ping(request):
     return web.Response(text="Bot is live!")
