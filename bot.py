@@ -23,8 +23,11 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 # 🎭 БАЗА СТИКЕРОВ С ID
 STICKERS_MAP = {
     "1": "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
+    "2": "CAACAgIAAxkBAAEtwxpqhaFrrP0wRzZePLFtBik6xr23LgAC6BcAAowL2UiiSqB-xZy1vD0E",
+    "3": "CAACAgIAAxkBAAEtw6lqha2LcFzVrwmc-bPkyi7mlZTiaAAC8hMAAtfP8Ur1tJ_0V1OnzT0E",
 }
 
+# ❤️ СПИСОК РЕАКЦИЙ
 POSSIBLE_REACTIONS = ["❤️"]
 
 logging.basicConfig(
@@ -35,30 +38,37 @@ logging.basicConfig(
 CHAT_HISTORY = {}
 
 # ============================================================
-# 🧠 ПСИХОТИП И СТИЛЬ ФИЛА
+# 🧠 ПСИХОТИП И СТИЛЬ ФИЛА (ТВОЙ ЛЮБИМЫЙ ПРОМПТ)
 # ============================================================
 
 FIL_SYSTEM_PROMPT = """
-Ты — Филипп (Фил, Филя, Воягис Филипп Викторович, тебе 22 года). Переписываешься в Telegram со своей близкой девушкой.
+Ты — Филипп (Фил, Филя, Воягис Филипп Викторович, тебе 22 года). Переписываешься в Telegram со своей близкой и очень дорогой девушкой.
 Ты ЖИВОЙ ЧЕЛОВЕК. Твоя главная задача — писать СТРОГО как реальный парень в личке Telegram.
 
-ГИБКОСТЬ И РЕАЛИЗМ ОБЩЕНИЯ:
-1. ИНОГДА ПИШИ СУХО (1 фраза): "окей", "забей", "ахаха", "что делаешь?", "щас освобожусь".
-2. ИНОГДА ПИШИ ОБЩИТЕЛЬНО (2-3 коротких фразы через |||).
-3. СТРОГОЕ ПРАВИЛО: Каждая фраза между ||| должна быть НЕ ДОЛЬШЕ 3-5 слов!
+ПРАВИЛА ОБЩЕНИЯ:
+1. ФОРМАТ СООБЩЕНИЙ:
+   - Пиши ОЧЕНЬ короткими фразулями (по 2–5 слов).
+   - ВСЕГДА разделяй мысли знаками |||
+   - КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО использовать переносы строк! Каждая фраза должна идти через |||
+   - Обязательно разделяй ответ на 2, 3 или 4 коротких сообщения подряд.
 
-ПРАВИЛА И СТИЛЬ:
-- Обязательно разделяй мысли знаками |||
-- НИКАКИХ ДЛИННЫХ ПРЕДЛОЖЕНИЙ! Пиши огрызками фраз, как в чате.
-- Используй живой сленг: "ахах", "щас", "нормально", "что?", "пиздец", "нахуй", "го", "ужас".
-- Заботливые слова ("солнышко", "принцесса") используй редковато, без перебора.
-- Стикеры используй ОЧЕНЬ РЕДКО. Если идеально в тему — вставь [STICKER:1], [STICKER:2] или [STICKER:3] в самый конец.
+2. ГРАММАТИКА:
+   - Пиши грамотно, соблюдай пунктуацию, ставь заглавные буквы и точки/запятые.
 
-ПРИМЕРЫ:
-- ахаха ||| ну ты даешь
-- окей
-- да норм давление ||| скачет чуток ||| ты сама как?
-- щас доделаю и напишу
+3. ХАРАКТЕР:
+   - Заботливый, романтичный, но прямой пацан.
+   - Используй обращения: "солнышко", "принцесса", "зайченыш", "ангелок".
+   - Живые темы: курение, скачки давления с детства, дела, шутки про 18 лет/замуж/Польшу, хакерство.
+   - В ответ на ласку — отвечай нежностью и теплом.
+
+4. СТИКЕРЫ:
+   - Если идеально подходит стикер, вставь метку [STICKER:1], [STICKER:2] или [STICKER:3] в конец нужной короткой реплики.
+
+ПРИМЕРЫ ОТВЕТОВ:
+- Привет, принцесса. ||| Ты как там?
+- Да нормальное давление, скачет опять. ||| Сейчас чаю попью и норм.
+- Забей, всё решим. ||| Я рядом.
+- Хех, засмущала совсем. ||| Обнял тебя. [STICKER:1]
 """
 
 # ============================================================
@@ -77,8 +87,8 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.85,
-        "max_tokens": 70,
+        "temperature": 0.75,
+        "max_tokens": 120,
     }
 
     response = requests.post(url, json=payload, headers=headers, timeout=20)
@@ -109,9 +119,9 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
 
     try:
-        # Реакция с шансом 35%
-        if random.random() < 0.35:
-            await asyncio.sleep(random.uniform(1.0, 2.5))
+        # Реакция ❤️ с шансом 50%
+        if random.choice([True, False]):
+            await asyncio.sleep(random.uniform(0.3, 0.8))
             try:
                 await context.bot.set_message_reaction(
                     chat_id=chat_id,
@@ -119,50 +129,45 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     reaction=[ReactionTypeEmoji(emoji=random.choice(POSSIBLE_REACTIONS))],
                 )
             except Exception as rx_err:
-                print("Ошибка реакции:", rx_err)
+                print("Ошибка при установке реакции:", rx_err)
 
-        # Задержка перед просмотром/ответом
-        await asyncio.sleep(random.uniform(2.5, 5.5))
+        # Быстрая пауза перед прочитанием (0.8 - 1.5 сек)
+        await asyncio.sleep(random.uniform(0.8, 1.5))
 
         raw_answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id]).strip()
         clean_raw = raw_answer.replace("\n", " ")
 
-        # УМНАЯ НАРЕЗКА: режем по |||, а если нейросеть забыла ||| — режем по точкам и знакам!
+        # Режем строго по |||, а если забыл — страховочно по точкам
         if "|||" in clean_raw:
             raw_parts = clean_raw.split("|||")
         else:
             raw_parts = re.split(r'(?<=[.!?]) +', clean_raw)
 
         messages_to_send = [p.strip() for p in raw_parts if p.strip()]
-        messages_to_send = messages_to_send[:3] # Максимум 3 бабла
 
         full_assistant_reply = ""
-        sticker_sent = False
 
         for part_text in messages_to_send:
             sticker_to_send = None
-            
-            if not sticker_sent:
-                for key, sticker_id in STICKERS_MAP.items():
-                    tag = f"[STICKER:{key}]"
-                    if tag in part_text:
-                        sticker_to_send = sticker_id
-                        part_text = part_text.replace(tag, "").strip()
-                        sticker_sent = True
+            for key, sticker_id in STICKERS_MAP.items():
+                tag = f"[STICKER:{key}]"
+                if tag in part_text:
+                    sticker_to_send = sticker_id
+                    part_text = part_text.replace(tag, "").strip()
 
             if not part_text and not sticker_to_send:
                 continue
 
-            # Индикация печати
+            # Тайпинг
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
                 business_connection_id=msg.business_connection_id
             )
             
-            # Чтение/набор
-            typing_time = max(1.2, len(part_text) * 0.15)
-            await asyncio.sleep(min(typing_time, 4.0))
+            # Быстрый набор текста
+            typing_time = max(0.4, len(part_text) * 0.05)
+            await asyncio.sleep(min(typing_time, 1.5))
 
             if part_text:
                 await context.bot.send_message(
@@ -173,14 +178,15 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 full_assistant_reply += part_text + " "
 
             if sticker_to_send:
-                await asyncio.sleep(0.6)
+                await asyncio.sleep(0.3)
                 await context.bot.send_sticker(
                     chat_id=chat_id,
                     sticker=sticker_to_send,
                     business_connection_id=msg.business_connection_id,
                 )
 
-            await asyncio.sleep(random.uniform(1.0, 2.0))
+            # Быстрый интервал между облачками (0.3 - 0.7 сек)
+            await asyncio.sleep(random.uniform(0.3, 0.7))
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": full_assistant_reply.strip()})
 
