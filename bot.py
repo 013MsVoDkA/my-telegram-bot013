@@ -49,14 +49,12 @@ LAST_DIALOG_INFO = {
 # 🖼️ ФОТО И СТИКЕРЫ ФИЛА
 # ============================================================
 
-# Прямые ссылки на исходники фото
 PHOTO_URLS = [
     "https://i.ibb.co/93Zcq1Tw/image.png",
     "https://i.ibb.co/N5drS7d/image.png",
     "https://i.ibb.co/HDfmwXX1/image.png",
 ]
 
-# Стикеры Фила
 STICKER_IDS = [
     "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
     "CAACAgIAAxkBAAEt5OVqia1yeaxw4HNnXD_qUJc7nIjvcAACBhoAAvU3kEokds_i1WNAXz0E",
@@ -64,7 +62,7 @@ STICKER_IDS = [
 ]
 
 # ============================================================
-# 🧠 ИДЕАЛЬНЫЙ СБАЛАНСИРОВАННЫЙ ПРОМПТ
+# 🧠 СБАЛАНСИРОВАННЫЙ ПРОМПТ
 # ============================================================
 
 FIL_SYSTEM_PROMPT = """
@@ -141,8 +139,11 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     await asyncio.sleep(6.0)
 
-    messages = PENDING_MESSAGES.pop(chat_id, [])
+    data = PENDING_MESSAGES.pop(chat_id, {})
     PENDING_TASKS.pop(chat_id, None)
+
+    messages = data.get("texts", [])
+    last_msg_id = data.get("last_msg_id")
 
     if not messages:
         return
@@ -167,7 +168,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         messages_to_send = [p.strip() for p in raw_parts if p.strip()][:2]
         full_assistant_reply = ""
 
-        # 📸 Отправка полноценного фото (шанс 10%)
+        # 📸 Отправка фото (шанс 10%)
         if PHOTO_URLS and random.random() < 0.10:
             photo_url = random.choice(PHOTO_URLS)
             try:
@@ -182,7 +183,10 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             except Exception as p_err:
                 print("⚠️ Ошибка отправки фото:", p_err)
 
-        for part_text in messages_to_send:
+        # 💬 Определение, нужно ли делать reply (шанс 40%)
+        should_reply = random.random() < 0.40
+
+        for i, part_text in enumerate(messages_to_send):
             if not part_text:
                 continue
 
@@ -193,10 +197,14 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             )
             await asyncio.sleep(random.uniform(2.5, 4.5))
 
+            # Прикрепляем reply только к первой отправляемой фразе
+            reply_to_id = last_msg_id if (should_reply and i == 0) else None
+
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=part_text,
                 business_connection_id=business_connection_id,
+                reply_to_message_id=reply_to_id
             )
             full_assistant_reply += part_text + " "
 
@@ -232,20 +240,22 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
     LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
-    # ❤️ Реакция
-    if random.random() < 0.30:
+    # ❤️ Реакция (исправлено под Business Connection API, шанс 40%)
+    if random.random() < 0.40:
         try:
             await context.bot.set_message_reaction(
                 chat_id=chat_id,
                 message_id=msg.message_id,
-                reaction=[ReactionTypeEmoji("❤️")],
+                reaction=[ReactionTypeEmoji(emoji="❤️")],
             )
         except Exception as rx_err:
             print("⚠️ Ошибка реакции:", rx_err)
 
     if chat_id not in PENDING_MESSAGES:
-        PENDING_MESSAGES[chat_id] = []
-    PENDING_MESSAGES[chat_id].append(user_text)
+        PENDING_MESSAGES[chat_id] = {"texts": [], "last_msg_id": None}
+    
+    PENDING_MESSAGES[chat_id]["texts"].append(user_text)
+    PENDING_MESSAGES[chat_id]["last_msg_id"] = msg.message_id
 
     if chat_id in PENDING_TASKS:
         PENDING_TASKS[chat_id].cancel()
