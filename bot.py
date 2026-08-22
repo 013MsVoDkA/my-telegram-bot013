@@ -172,7 +172,8 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 continue
 
             char_count = len(part_text)
-            typing_duration = max(1.0, min(char_count * 0.06, 3.5))
+            # Немного ускорили тайминг печати, чтобы бот не зависал надолго
+            typing_duration = max(0.8, min(char_count * 0.04, 2.5))
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -192,10 +193,11 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             full_assistant_reply += part_text + " "
 
             if i < len(messages_to_send) - 1:
-                await asyncio.sleep(random.uniform(1.2, 2.5))
+                # Пауза между отправкой отдельных сообщений (чуть быстрее, чем раньше)
+                await asyncio.sleep(random.uniform(0.8, 1.5))
 
         if STICKER_IDS and random.random() < 0.2:
-            await asyncio.sleep(1.0)
+            await asyncio.sleep(0.8)
             try:
                 await context.bot.send_sticker(
                     chat_id=chat_id,
@@ -270,10 +272,10 @@ async def auto_initiative_loop(app):
                 full_reply = ""
                 for part in parts:
                     await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=business_conn_id)
-                    await asyncio.sleep(2.0)
+                    await asyncio.sleep(1.5)
                     await app.bot.send_message(chat_id=chat_id, text=part, business_connection_id=business_conn_id)
                     full_reply += part + " "
-                    await asyncio.sleep(1.5)
+                    await asyncio.sleep(1.0)
 
                 if chat_id not in CHAT_HISTORY:
                     CHAT_HISTORY[chat_id] = []
