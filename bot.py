@@ -313,7 +313,6 @@ async def main():
 
     app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
     app.add_handler(TypeHandler(Update, handle_business), group=-1)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_direct))
 
     asyncio.create_task(auto_initiative_loop(app))
 
