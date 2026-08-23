@@ -234,11 +234,10 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             FIL_STATUS["busy_start_time"] = get_msk_now()
             FIL_STATUS["busy_reason"] = answer
 
-      parts = split_into_messages(answer)
+        parts = split_into_messages(answer)
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            # Увеличили время «печати» и паузы между частями
             typing_duration = max(2.0, min(char_count * 0.1, 4.5))
 
             await context.bot.send_chat_action(
@@ -255,24 +254,26 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 reply_to_message_id=(last_msg_id if idx == 0 else None)
             )
 
-            # Реальная пауза между отправкой отдельных предложений
             if idx < len(parts) - 1:
                 await asyncio.sleep(random.uniform(2.5, 4.5))
 
-        if FIL_STICKERS and (random.random() < 0.15 or FIL_STATUS["is_busy"]):
+        warm_words = ["люблю", "скуч", "не грусти", "малыш", "зай", "рядом", "обнял"]
+        should_send_sticker = any(word in answer.lower() for word in warm_words)
+
+        if FIL_STICKERS and should_send_sticker:
             try:
                 chosen_sticker = random.choice(FIL_STICKERS)
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(random.uniform(1.5, 2.5))
                 await context.bot.send_sticker(
                     chat_id=chat_id,
                     sticker=chosen_sticker,
                     business_connection_id=business_connection_id
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                print("❌ Ошибка отправки стикера:", e)
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
-        save_chat_history(CHAT_HISTORY) # Сохраняем историю на диск
+        save_chat_history(CHAT_HISTORY)
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
     except Exception as e:
