@@ -11,9 +11,7 @@ from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
-    MessageHandler,
     TypeHandler,
-    filters,
 )
 
 # ==============================
@@ -53,7 +51,8 @@ MY_ADMIN_CHAT_ID = 1257683623
 FIL_STATUS = {
     "is_busy": False,
     "busy_until": None,
-    "busy_reason": ""
+    "busy_reason": "",
+    "busy_start_time": None  # Время, когда ушел, для автосброса
 }
 
 # Список стикеров (сюда можно вставить file_id стикеров)
@@ -88,7 +87,7 @@ FIL_DEFAULT_PROMPT = """
 3. СТРОГО ЗАПРЕЩЕНО использовать тире («—», «–»). 
 4. Отвечай по существу (1-2 короткие фразы).
 5. Дружелюбно, с юмором, компанейски, но сдержанно. Никаких соплей. 
-6. НЕ используй ласковые слова («малышка», «милая», «дорогая»).
+6. НЕ используй ласковые слова («малышка», "милая", "дорогая").
 7. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
 """
 
@@ -116,7 +115,8 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) ->
         "max_tokens": max_tokens,
     }
 
-    response = requests.post(url, json=payload, headers=headers, timeout=20)
+    # Жесткий таймаут на запрос к ИИ (25 секунд)
+    response = requests.post(url, json=payload, headers=headers, timeout=25)
 
     if response.status_code == 200:
         data = response.json()
@@ -152,38 +152,49 @@ def split_into_messages(text: str) -> list:
     return sentences[:4]
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    # Логика рандомной занятости
-    if FIL_STATUS["is_busy"]:
-        if FIL_STATUS["busy_until"] and get_msk_now() < FIL_STATUS["busy_until"]:
-            delay_seconds = random.uniform(300.0, 900.0)  # пропал на 5-15 минут
-        else:
-            FIL_STATUS["is_busy"] = False
-            delay_seconds = random.uniform(6.0, 8.0)
-    else:
-        delay_seconds = random.uniform(6.0, 8.0)
-    
-    # Бот просто молча ждет почти всю задержку (никаких статусов печати)
-    silence_time = max(0.5, delay_seconds - 3.0)
-    await asyncio.sleep(silence_time)
-
-    data = PENDING_MESSAGES.pop(chat_id, {})
-    PENDING_TASKS.pop(chat_id, None)
-
-    messages = data.get("texts", [])
-    last_msg_id = data.get("last_msg_id")
-
-    if not messages:
-        return
-
-    combined_text = "\n".join(messages)
-
-    if chat_id not in CHAT_HISTORY:
-        CHAT_HISTORY[chat_id] = []
-
-    CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
-    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
-
     try:
+        now = get_msk_now()
+
+        # АВТОМАТИЧЕСКИЙ СБРОС ЗАНЯТОСТИ: если прошло больше 40 минут с момента ухода, принудительно освобождаем Фила
+        if FIL_STATUS["is_busy"]:
+            if FIL_STATUS["busy_start_time"] and (now - FIL_STATUS["busy_start_time"]).total_seconds() > 2400:
+                FIL_STATUS["is_busy"] = False
+                FIL_STATUS["busy_until"] = None
+                FIL_STATUS["busy_start_time"] = None
+
+        # Логика рандомной занятости
+        if FIL_STATUS["is_busy"]:
+            if FIL_STATUS["busy_until"] and now < FIL_STATUS["busy_until"]:
+                delay_seconds = random.uniform(300.0, 900.0)  # пропал на 5-15 минут
+            else:
+                FIL_STATUS["is_busy"] = False
+                FIL_STATUS["busy_until"] = None
+                FIL_STATUS["busy_start_time"] = None
+                delay_seconds = random.uniform(6.0, 8.0)
+        else:
+            delay_seconds = random.uniform(6.0, 8.0)
+        
+        # Бот молча думает почти всю задержку
+        silence_time = max(0.5, delay_seconds - 3.0)
+        await asyncio.sleep(silence_time)
+
+        data = PENDING_MESSAGES.pop(chat_id, {})
+        PENDING_TASKS.pop(chat_id, None)
+
+        messages = data.get("texts", [])
+        last_msg_id = data.get("last_msg_id")
+
+        if not messages:
+            return
+
+        combined_text = "\n".join(messages)
+
+        if chat_id not in CHAT_HISTORY:
+            CHAT_HISTORY[chat_id] = []
+
+        CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
+        CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
+
         if chat_id == MY_ADMIN_CHAT_ID:
             current_prompt = FIL_LOVE_PROMPT
             max_tok = 110
@@ -191,6 +202,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             current_prompt = FIL_DEFAULT_PROMPT
             max_tok = 70
 
+        # Запрос к ИИ в фоновом режиме с защитой
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
         
         # Проверка на уход по делам
@@ -200,6 +212,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             FIL_STATUS["is_busy"] = True
             min_away = random.randint(20, 50)
             FIL_STATUS["busy_until"] = get_msk_now() + timedelta(minutes=min_away)
+            FIL_STATUS["busy_start_time"] = get_msk_now()
             FIL_STATUS["busy_reason"] = answer
 
         parts = split_into_messages(answer)
@@ -208,7 +221,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             char_count = len(part)
             typing_duration = max(1.5, min(char_count * 0.08, 3.5))
 
-            # Статус печати включается прямо перед отправкой каждого кусочка сообщения
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
@@ -243,7 +255,9 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
     except Exception as e:
-        print("\n❌ ОШИБКА BUSINESS:", repr(e))
+        print("\n❌ ОШИБКА В PROCESS_DELAYED_REPLY:", repr(e))
+        # Сбрасываем зависшие таски при любой ошибке, чтобы бот не уходил в перманентный блок
+        PENDING_TASKS.pop(chat_id, None)
 
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.business_message:
@@ -296,15 +310,15 @@ async def auto_initiative_loop(app):
     await asyncio.sleep(20)
     while True:
         await asyncio.sleep(180)
-        chat_id = LAST_DIALOG_INFO["chat_id"] or TARGET_LOVE_CHAT_ID
-        business_conn_id = LAST_DIALOG_INFO["business_connection_id"]
-        last_activity = LAST_DIALOG_INFO["last_activity"]
+        try:
+            chat_id = LAST_DIALOG_INFO["chat_id"] or TARGET_LOVE_CHAT_ID
+            business_conn_id = LAST_DIALOG_INFO["business_connection_id"]
+            last_activity = LAST_DIALOG_INFO["last_activity"]
 
-        if not last_activity:
-            continue
+            if not last_activity:
+                continue
 
-        if (get_msk_now() - last_activity).total_seconds() / 60.0 >= 40.0:
-            try:
+            if (get_msk_now() - last_activity).total_seconds() / 60.0 >= 40.0:
                 history = CHAT_HISTORY.get(chat_id, [])
                 answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history, max_tokens=70).strip()
                 
@@ -322,8 +336,8 @@ async def auto_initiative_loop(app):
                     CHAT_HISTORY[chat_id] = []
                 CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
                 LAST_DIALOG_INFO["last_activity"] = get_msk_now()
-            except Exception as e:
-                print("❌ Ошибка авто-инициативы:", e)
+        except Exception as e:
+            print("❌ Ошибка авто-инициативы:", e)
 
 async def handle_business_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.business_connection:
