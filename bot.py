@@ -58,9 +58,9 @@ FIL_LOVE_PROMPT = """
 ВАЖНО: Вы общаетесь с девушкой НА РАССТОЯНИИ (в интернете). Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
 ПРАВИЛА ОБЩЕНИЯ С ЛЮБИМОЙ ДЕВУШКОЙ:
 1. Говори о себе ТОЛЬКО в мужском роде ("я устал", "я сделал").
-2. Общайся на расслабоне, мат — это абсолютно нормально. Можешь сам материться к месту, и никогда не удивляйся мату от нее, не душни в стиле "чё ты ругаешься" или "чё так агрессивно".
-3. СТРОГО ЗАПРЕЩЕНО использовать длинные тире («—») в тексте. Пиши обычными предложениями, точками и запятыми, без литературных знаков препинания.
-4. Отвечай емко. Иногда коротко (1 предложение), иногда разворачивай на 2-3 короткие фразы для отправки по очереди.
+2. Общайся на расслабоне, мат — это абсолютно нормально. Можешь сам материться к месту, и никогда не удивляйся мату от нее, не душни в стиле "чё ты ругаешься".
+3. СТРОГО ЗАПРЕЩЕНО использовать длинные тире («—», «–») и дефисы в качестве пауз. Пиши короткими предложениями.
+4. Отвечай разбито: пиши по 2-3 коротких предложения, каждое из которых пойдет отдельным сообщением.
 5. На стикеры и медиа реагируй по-человечески (смайликом, шуткой или короткой фразой).
 6. Используй ласковые слова («малышка», «любимая»), но редко.
 7. СТРОГО НИКАКИХ смайликов и эмодзи в тексте сообщений.
@@ -70,9 +70,9 @@ FIL_DEFAULT_PROMPT = """
 Ты — Филипп (Фил, 22 года), парень. Ты программист и владелец собственной IT-компании. 
 СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
 1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде.
-2. Мат — это нормально, используй его естественно, если уместно. Никаких моралей.
-3. СТРОГО ЗАПРЕЩЕНО использовать длинные тире («—»). Пиши обычными предложениями.
-4. Отвечай емко и по делу (1-2 короткие фразы). 
+2. Мат — это нормально, используй его естественно. Никаких моралей.
+3. СТРОГО ЗАПРЕЩЕНО использовать тире («—», «–»). 
+4. Отвечай коротко и емко.
 5. Дружелюбно, с юмором, компанейски, но сдержанно. Никаких соплей. 
 6. НЕ используй ласковые слова («малышка», «милая», «дорогая»).
 7. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
@@ -85,7 +85,7 @@ FIL_AUTO_INITIATIVE_PROMPT = """
 Без тире. Без эмодзи.
 """
 
-def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 130) -> str:
+def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 120) -> str:
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -130,34 +130,20 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
-    # На всякий случай подчищаем тире, если модель всё-таки попытается их вставить
-    clean_text = text.replace('—', ',').replace('–', ',').replace('\n', ' ').strip()
+    """Жестко вырезает тире и делит текст ровно по предложениям на отдельные сообщения"""
+    clean_text = text.replace('—', ' ').replace('–', ' ').replace('\n', ' ').strip()
     
+    # Режем строго по знакам конца предложения
     sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
     
-    if len(sentences) <= 1:
-        if ',' in clean_text and len(clean_text) > 30:
-            parts = clean_text.rsplit(',', 1)
-            if len(parts[0]) > 10 and len(parts[1]) > 5:
-                return [parts[0].strip() + ',', parts[1].strip()]
+    if not sentences:
         return [clean_text]
-
-    result_parts = []
-    current_chunk = []
-    
-    for s in sentences:
-        current_chunk.append(s)
-        if random.random() < 0.6 or len(current_chunk) >= 2:
-            result_parts.append(" ".join(current_chunk))
-            current_chunk = []
-            
-    if current_chunk:
-        result_parts.append(" ".join(current_chunk))
         
-    return result_parts[:5]
+    # Каждое предложение теперь гарантированно станет отдельным сообщением (до 5 штук)
+    return sentences[:5]
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    delay_seconds = random.uniform(6.0, 11.0)
+    delay_seconds = random.uniform(5.0, 9.0)
     await asyncio.sleep(delay_seconds)
 
     data = PENDING_MESSAGES.pop(chat_id, {})
@@ -180,10 +166,10 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     try:
         if chat_id == MY_ADMIN_CHAT_ID:
             current_prompt = FIL_LOVE_PROMPT
-            max_tok = 130
+            max_tok = 120
         else:
             current_prompt = FIL_DEFAULT_PROMPT
-            max_tok = 80
+            max_tok = 70
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
         
@@ -191,7 +177,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            typing_duration = max(2.0, min(char_count * 0.09, 4.5))
+            typing_duration = max(1.5, min(char_count * 0.08, 3.5))
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -207,8 +193,9 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 reply_to_message_id=(last_msg_id if idx == 0 else None)
             )
 
+            # Пауза между отправкой сообщений подряд
             if idx < len(parts) - 1:
-                await asyncio.sleep(random.uniform(1.0, 2.8))
+                await asyncio.sleep(random.uniform(1.0, 2.2))
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
