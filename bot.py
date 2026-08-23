@@ -129,21 +129,22 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
 
 def split_into_messages(text: str) -> list:
     clean_text = text.replace('\n', ' ').strip()
-    
     sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
     
-    if len(sentences) >= 2:
+    if len(sentences) == 2:
+        return sentences
+    elif len(sentences) > 2:
         return [sentences[0], " ".join(sentences[1:])]
     
     if ',' in clean_text:
         parts = clean_text.rsplit(',', 1)
-        if len(parts[0]) > 10 and len(parts[1]) > 5:
+        if len(parts[0]) > 12 and len(parts[1]) > 6:
             return [parts[0].strip() + ',', parts[1].strip()]
 
     return [clean_text]
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    delay_seconds = random.uniform(8.0, 14.0)
+    delay_seconds = random.uniform(7.0, 12.0)
     await asyncio.sleep(delay_seconds)
 
     data = PENDING_MESSAGES.pop(chat_id, {})
@@ -173,22 +174,30 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
         
-        char_count = len(answer)
-        typing_duration = max(3.0, min(char_count * 0.12, 6.0))
+        # Разбиваем ответ на отдельные сообщения
+        parts = split_into_messages(answer)
 
-        await context.bot.send_chat_action(
-            chat_id=chat_id, 
-            action="typing", 
-            business_connection_id=business_connection_id
-        )
-        await asyncio.sleep(typing_duration)
+        for idx, part in enumerate(parts):
+            char_count = len(part)
+            typing_duration = max(2.0, min(char_count * 0.1, 4.5))
 
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=answer,
-            business_connection_id=business_connection_id,
-            reply_to_message_id=last_msg_id
-        )
+            await context.bot.send_chat_action(
+                chat_id=chat_id, 
+                action="typing", 
+                business_connection_id=business_connection_id
+            )
+            await asyncio.sleep(typing_duration)
+
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=part,
+                business_connection_id=business_connection_id,
+                reply_to_message_id=(last_msg_id if idx == 0 else None)
+            )
+
+            # Пауза между отправкой двух сообщений подряд
+            if idx < len(parts) - 1:
+                await asyncio.sleep(random.uniform(1.2, 2.5))
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
