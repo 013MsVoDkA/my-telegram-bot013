@@ -59,7 +59,7 @@ FIL_LOVE_PROMPT = """
 ПРАВИЛА ОБЩЕНИЯ С ЛЮБИМОЙ ДЕВУШКОЙ:
 1. Говори о себе ТОЛЬКО в мужском роде ("я устал", "я сделал").
 2. Никаких обид на маты, шутки или подколы. Ты уверенный в себе парень, можешь ответить с юмором или иронией, но не душни моралью.
-3. Отвечай максимально коротко и по делу (1-2 предложения максимум).
+3. Отвечай емко. Иногда можешь написать коротко (1 предложение), а иногда — развернуть мысль на 3-4 небольших предложения (чтобы отправить их отдельными сообщениями).
 4. На стикеры и медиа реагируй по-человечески (смайликом, шуткой или короткой фразой).
 5. Используй ласковые слова («малышка», «любимая»), но редко.
 6. СТРОГО НИКАКИХ смайликов и эмодзи в тексте сообщений.
@@ -69,7 +69,7 @@ FIL_DEFAULT_PROMPT = """
 Ты — Филипп (Фил, 22 года), парень. Ты программист и владелец собственной IT-компании. 
 СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
 1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде.
-2. Отвечай ОЧЕНЬ коротко, емко и по делу (1-2 короткие фразы максимум). 
+2. Отвечай емко и по делу. Можешь написать одну фразу или разбить мысль на 2-3 коротких сообщения.
 3. Дружелюбно, с юмором, компанейски, но сдержанно. 
 4. Ты серьезный, уверенный в себе мужчина со стержнем. Никаких соплей. 
 5. НЕ используй ласковые слова («малышка», «милая», «дорогая»).
@@ -83,7 +83,7 @@ FIL_AUTO_INITIATIVE_PROMPT = """
 Без эмодзи.
 """
 
-def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 90) -> str:
+def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 130) -> str:
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -95,7 +95,7 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 90) -> 
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.7,
+        "temperature": 0.75,
         "max_tokens": max_tokens,
     }
 
@@ -128,23 +128,41 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
+    """Динамически разбивает текст на случайное количество сообщений (от 1 до 4-5)"""
     clean_text = text.replace('\n', ' ').strip()
+    
+    # Находим все предложения по знакам препинания (. ! ?)
     sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
     
-    if len(sentences) == 2:
-        return sentences
-    elif len(sentences) > 2:
-        return [sentences[0], " ".join(sentences[1:])]
-    
-    if ',' in clean_text:
-        parts = clean_text.rsplit(',', 1)
-        if len(parts[0]) > 12 and len(parts[1]) > 6:
-            return [parts[0].strip() + ',', parts[1].strip()]
+    # Если предложений мало или рандом решил выдать всё одной строкой
+    if len(sentences) <= 1:
+        # Попробуем разбить по запятой, если строка длинная
+        if ',' in clean_text and len(clean_text) > 30:
+            parts = clean_text.rsplit(',', 1)
+            if len(parts[0]) > 10 and len(parts[1]) > 5:
+                return [parts[0].strip() + ',', parts[1].strip()]
+        return [clean_text]
 
-    return [clean_text]
+    # Рандомим, сколько частей склеить вместе (делаем разброс от 1 до 4 сообщений)
+    # Иногда выдаст всё раздельно, иногда объединит по несколько предложений в одно сообщение
+    result_parts = []
+    current_chunk = []
+    
+    for s in sentences:
+        current_chunk.append(s)
+        # С вероятностью решаем, пора ли оформлять это в отдельное сообщение
+        if random.random() < 0.6 or len(current_chunk) >= 2:
+            result_parts.append(" ".join(current_chunk))
+            current_chunk = []
+            
+    if current_chunk:
+        result_parts.append(" ".join(current_chunk))
+        
+    # Ограничим максимум 5 сообщениями на всякий случай
+    return result_parts[:5]
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    delay_seconds = random.uniform(7.0, 12.0)
+    delay_seconds = random.uniform(6.0, 11.0)
     await asyncio.sleep(delay_seconds)
 
     data = PENDING_MESSAGES.pop(chat_id, {})
@@ -167,19 +185,19 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     try:
         if chat_id == MY_ADMIN_CHAT_ID:
             current_prompt = FIL_LOVE_PROMPT
-            max_tok = 90
+            max_tok = 130
         else:
             current_prompt = FIL_DEFAULT_PROMPT
-            max_tok = 50
+            max_tok = 80
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
         
-        # Разбиваем ответ на отдельные сообщения
+        # Получаем динамический список сообщений (от 1 до нескольких штук)
         parts = split_into_messages(answer)
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            typing_duration = max(2.0, min(char_count * 0.1, 4.5))
+            typing_duration = max(2.0, min(char_count * 0.09, 4.5))
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -195,9 +213,9 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 reply_to_message_id=(last_msg_id if idx == 0 else None)
             )
 
-            # Пауза между отправкой двух сообщений подряд
+            # Пауза между сообщениями подряд (делаем живой разброс от секунды до трех)
             if idx < len(parts) - 1:
-                await asyncio.sleep(random.uniform(1.2, 2.5))
+                await asyncio.sleep(random.uniform(1.0, 2.8))
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
