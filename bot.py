@@ -58,8 +58,7 @@ FIL_STATUS = {
 
 # Список стикеров (сюда можно вставить file_id стикеров)
 FIL_STICKERS = [
-    "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
-    "CAACAgIAAxkBAAEt7slqiwhqxhmc7FUsY-EQsXkVtmevgQACPiIAAlVnMEl8llJpuz-g9z0E",
+    # "CAACAgIAAxkBAAE...", 
 ]
 
 # ============================================================
@@ -91,7 +90,6 @@ FIL_DEFAULT_PROMPT = """
 5. Дружелюбно, с юмором, компанейски, но сдержанно. Никаких соплей. 
 6. НЕ используй ласковые слова («малышка», «милая», «дорогая»).
 7. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
-8. ПЕРИОДИЧЕСКИ (если к месту) можешь написать, что ты занят, уходишь по делам, в магазин, засиделся за кодом или отлучаешься на время (например: "я сгоняю в магаз", "мне надо отвлечься по работе").
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
@@ -214,7 +212,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         busy_keywords = ["магазин", "магаз", "дела", "работу", "отойду", "вернусь", "занят", "поем", "машине", "баре"]
         if any(word in lower_ans for word in busy_keywords) and not FIL_STATUS["is_busy"]:
             FIL_STATUS["is_busy"] = True
-            min_ away = random.randint(20, 50)
+            min_away = random.randint(20, 50)
             FIL_STATUS["busy_until"] = get_msk_now() + timedelta(minutes=min_away)
             FIL_STATUS["busy_reason"] = answer
 
