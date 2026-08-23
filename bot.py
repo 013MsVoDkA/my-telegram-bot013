@@ -58,9 +58,9 @@ FIL_LOVE_PROMPT = """
 ВАЖНО: Вы общаетесь с девушкой НА РАССТОЯНИИ (в интернете). Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
 ПРАВИЛА ОБЩЕНИЯ С ЛЮБИМОЙ ДЕВУШКОЙ:
 1. Говори о себе ТОЛЬКО в мужском роде ("я устал", "я сделал").
-2. Общайся на расслабоне, мат — это абсолютно нормально. Можешь сам материться к месту, и никогда не удивляйся мату от нее, не душни в стиле "чё ты ругаешься".
-3. СТРОГО ЗАПРЕЩЕНО использовать длинные тире («—», «–») и дефисы в качестве пауз. Пиши короткими предложениями.
-4. Отвечай разбито: пиши по 2-3 коротких предложения, каждое из которых пойдет отдельным сообщением.
+2. Внимательно вникай в то, что она пишет, улавливай суть её сообщений и отвечай по делу. Мат — это абсолютно нормально. Можешь сам материться к месту, никогда не удивляйся мату от нее.
+3. СТРОГО ЗАПРЕЩЕНО использовать длинные тире («—», «–») и уродливые англицизмы. Пиши по-русски, естественным языком.
+4. Отвечай емко: 1-2 предложения, чтобы полностью раскрыть мысль, но без лишней воды.
 5. На стикеры и медиа реагируй по-человечески (смайликом, шуткой или короткой фразой).
 6. Используй ласковые слова («малышка», «любимая»), но редко.
 7. СТРОГО НИКАКИХ смайликов и эмодзи в тексте сообщений.
@@ -70,9 +70,9 @@ FIL_DEFAULT_PROMPT = """
 Ты — Филипп (Фил, 22 года), парень. Ты программист и владелец собственной IT-компании. 
 СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
 1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде.
-2. Мат — это нормально, используй его естественно. Никаких моралей.
+2. Внимательно читай сообщения, улавливай смысл. Мат — это нормально.
 3. СТРОГО ЗАПРЕЩЕНО использовать тире («—», «–»). 
-4. Отвечай коротко и емко.
+4. Отвечай по существу (1-2 короткие фразы).
 5. Дружелюбно, с юмором, компанейски, но сдержанно. Никаких соплей. 
 6. НЕ используй ласковые слова («малышка», «милая», «дорогая»).
 7. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
@@ -85,7 +85,7 @@ FIL_AUTO_INITIATIVE_PROMPT = """
 Без тире. Без эмодзи.
 """
 
-def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 120) -> str:
+def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) -> str:
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -97,7 +97,7 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 120) ->
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.8,
+        "temperature": 0.7,
         "max_tokens": max_tokens,
     }
 
@@ -130,20 +130,19 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
-    """Жестко вырезает тире и делит текст ровно по предложениям на отдельные сообщения"""
+    """Чистим тире и делим текст на логические части (максимум 2)"""
     clean_text = text.replace('—', ' ').replace('–', ' ').replace('\n', ' ').strip()
     
-    # Режем строго по знакам конца предложения
     sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
     
     if not sentences:
         return [clean_text]
         
-    # Каждое предложение теперь гарантированно станет отдельным сообщением (до 5 штук)
-    return sentences[:5]
+    return sentences[:2]
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    delay_seconds = random.uniform(5.0, 9.0)
+    # Увеличили паузу до 12-18 секунд, чтобы ты успевала дописать всё, что хочешь
+    delay_seconds = random.uniform(12.0, 18.0)
     await asyncio.sleep(delay_seconds)
 
     data = PENDING_MESSAGES.pop(chat_id, {})
@@ -155,6 +154,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     if not messages:
         return
 
+    # Объединяем твои сообщения в один связный контекст, чтобы он видел всю мысль целиком
     combined_text = "\n".join(messages)
 
     if chat_id not in CHAT_HISTORY:
@@ -166,7 +166,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     try:
         if chat_id == MY_ADMIN_CHAT_ID:
             current_prompt = FIL_LOVE_PROMPT
-            max_tok = 120
+            max_tok = 110
         else:
             current_prompt = FIL_DEFAULT_PROMPT
             max_tok = 70
@@ -177,7 +177,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            typing_duration = max(1.5, min(char_count * 0.08, 3.5))
+            typing_duration = max(1.5, min(char_count * 0.08, 3.0))
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -193,9 +193,8 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 reply_to_message_id=(last_msg_id if idx == 0 else None)
             )
 
-            # Пауза между отправкой сообщений подряд
             if idx < len(parts) - 1:
-                await asyncio.sleep(random.uniform(1.0, 2.2))
+                await asyncio.sleep(random.uniform(1.0, 2.0))
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
@@ -246,6 +245,7 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if chat_id in PENDING_TASKS:
         PENDING_TASKS[chat_id].cancel()
 
+    # Сбрасываем таймер ожидания при каждом новом отправленном тобой сообщении
     PENDING_TASKS[chat_id] = asyncio.create_task(
         process_delayed_reply(chat_id, msg.business_connection_id, context)
     )
@@ -264,10 +264,10 @@ async def auto_initiative_loop(app):
         if (get_msk_now() - last_activity).total_seconds() / 60.0 >= 40.0:
             try:
                 history = CHAT_HISTORY.get(chat_id, [])
-                answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history, max_tokens=80).strip()
+                answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history, max_tokens=70).strip()
                 
                 char_count = len(answer)
-                typing_duration = max(3.0, min(char_count * 0.12, 6.0))
+                typing_duration = max(3.0, min(char_count * 0.12, 5.0))
 
                 await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=business_conn_id)
                 await asyncio.sleep(typing_duration)
