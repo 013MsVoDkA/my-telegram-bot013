@@ -67,7 +67,7 @@ LAST_DIALOG_INFO = {
 
 MY_ADMIN_CHAT_ID = 1257683623
 
-# Список стикеров (сюда можно вставить file_id стикеров)
+# Список стикеров
 FIL_STICKERS = [
     "CAACAgIAAxkBAAEt7slqiwhqxhmc7FUsY-EQsXkVtmevgQACPiIAAlVnMEl8llJpuz-g9z0E",
     "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
@@ -183,7 +183,6 @@ def split_into_messages(text: str) -> list:
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     try:
-        # Никаких долгих пауз и статусов занятости — отвечаем сразу по стандартной небольшой задержке
         delay_seconds = random.uniform(3.0, 5.0)
         await asyncio.sleep(delay_seconds)
 
@@ -259,12 +258,17 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         PENDING_TASKS.pop(chat_id, None)
 
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # ЛОГИРУЕМ КАЖДЫЙ ВХОДЯЩИЙ АПДЕЙТ В КОНСОЛЬ RENDER
+    print(f"\n📩 ПОЛУЧЕН UPDATE: {update.to_json()}\n")
+
     if not update.business_message:
         return
 
     msg = update.business_message
     chat_id = msg.chat.id
     user_text = msg.text
+    
+    print(f"💬 Успешно пойман бизнес-месседж из чата {chat_id}: {user_text}")
 
     global MY_ADMIN_CHAT_ID
     if MY_ADMIN_CHAT_ID == 0:
