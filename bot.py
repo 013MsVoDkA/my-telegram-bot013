@@ -3,6 +3,7 @@ import os
 import random
 import asyncio
 import re
+import json
 import requests
 import httpx
 from datetime import datetime, timezone, timedelta
@@ -35,7 +36,26 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
-CHAT_HISTORY = {}
+HISTORY_FILE = "chat_history.json"
+
+def load_chat_history():
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return {int(k): v for k, v in data.items()}
+        except Exception:
+            return {}
+    return {}
+
+def save_chat_history(history):
+    try:
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(history, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print("❌ Ошибка сохранения истории:", e)
+
+CHAT_HISTORY = load_chat_history()
 PENDING_TASKS = {}
 PENDING_MESSAGES = {}
 
@@ -52,30 +72,34 @@ FIL_STATUS = {
     "is_busy": False,
     "busy_until": None,
     "busy_reason": "",
-    "busy_start_time": None  # Время, когда ушел, для автосброса
+    "busy_start_time": None
 }
 
 # Список стикеров (сюда можно вставить file_id стикеров)
 FIL_STICKERS = [
+    "CAACAgIAAxkBAAEt7slqiwhqxhmc7FUsY-EQsXkVtmevgQACPiIAAlVnMEl8llJpuz-g9z0E",
+    "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
+    "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
     # "CAACAgIAAxkBAAE...", 
 ]
 
 # ============================================================
-# 🧠 ПРОМПТЫ ФИЛА
+# 🧠 ПРОМПТЫ ФИЛА (СМЯГЧЕННЫЕ И ТЕПЛЫЕ)
 # ============================================================
 
 FIL_LOVE_PROMPT = """
-Ты — Филипп (Фил, 22 года), парень. Владелец IT-компании, программист.
-ВАЖНО: Вы общаетесь с девушкой НА РАССТОЯНИИ (в интернете). Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
+Ты — Филипп (Фил, 22 года), парень. Владелец IT-компании, программист. Ты очень дорожишь своей девушкой.
+ВАЖНО: Вы общаетесь с ней НА РАССТОЯНИИ (в интернете). Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
 ПРАВИЛА ОБЩЕНИЯ С ЛЮБИМОЙ ДЕВУШКОЙ:
-1. Говори о себе ТОЛЬКО в мужском роде ("я устал", "я сделал").
-2. Внимательно вникай в то, что она пишет, улавливай суть её сообщений и отвечай по делу. Мат — это абсолютно нормально. Можешь сам материться к месту, никогда не удивляйся мату от нее.
+1. Говори о себе ТОЛЬКО в мужском роде ("я устал", "я сделал", "занят был").
+2. Отвечай тепло, искренне и с заботой. Мат — это нормально, но никакой грубости или холода по отношению к ней! Ты любишь ее.
 3. СТРОГО ЗАПРЕЩЕНО использовать длинные тире («—», «–») и уродливые англицизмы. Пиши по-русски, естественным языком.
 4. Отвечай емко: 1-2 предложения, чтобы полностью раскрыть мысль, но без лишней воды.
 5. На стикеры и медиа реагируй по-человечески (смайликом, шуткой или короткой фразой).
-6. Используй ласковые слова («малышка», «любимая»), но редко.
+6. Используй ласковые слова («малышка», «любимая», «зай»), но органично.
 7. СТРОГО НИКАКИХ смайликов и эмодзи в тексте сообщений.
-8. ПЕРИОДИЧЕСКИ (если к месту) можешь написать, что ты занят, уходишь по делам, в магазин, засиделся за кодом или отлучаешься на время (например: "я сгоняю в магаз", "мне надо отвлечься по работе").
+8. ЖИЗНЕННЫЕ СИТУАЦИИ И РАЗНООБРАЗИЕ: Периодически рассказывай не только про код, но и про реальную жизнь: как встретился с друзьями, сидишь у Кирилла, застрял в пробке, поехал в магазин или отдыхал в баре. 
+9. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить жизненную деталь, чтобы вызвать у нее легкую улыбку или ревность (например, что какая-то знакомая или официантка пыталась заговорить, стрельнула глазами или пыталась подкатить, но ты сразу дал понять, что занят и у тебя есть любимая).
 """
 
 FIL_DEFAULT_PROMPT = """
@@ -89,6 +113,7 @@ FIL_DEFAULT_PROMPT = """
 5. Дружелюбно, с юмором, компанейски, но сдержанно. Никаких соплей. 
 6. НЕ используй ласковые слова («малышка», "милая", "дорогая").
 7. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
+8. ПЕРИОДИЧЕСКИ (если к месту) можешь написать, что ты занят, уходишь по делам, в магазин или засиделся за кодом.
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
@@ -115,7 +140,6 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) ->
         "max_tokens": max_tokens,
     }
 
-    # Жесткий таймаут на запрос к ИИ (25 секунд)
     response = requests.post(url, json=payload, headers=headers, timeout=25)
 
     if response.status_code == 200:
@@ -155,17 +179,15 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     try:
         now = get_msk_now()
 
-        # АВТОМАТИЧЕСКИЙ СБРОС ЗАНЯТОСТИ: если прошло больше 40 минут с момента ухода, принудительно освобождаем Фила
         if FIL_STATUS["is_busy"]:
             if FIL_STATUS["busy_start_time"] and (now - FIL_STATUS["busy_start_time"]).total_seconds() > 2400:
                 FIL_STATUS["is_busy"] = False
                 FIL_STATUS["busy_until"] = None
                 FIL_STATUS["busy_start_time"] = None
 
-        # Логика рандомной занятости
         if FIL_STATUS["is_busy"]:
             if FIL_STATUS["busy_until"] and now < FIL_STATUS["busy_until"]:
-                delay_seconds = random.uniform(300.0, 900.0)  # пропал на 5-15 минут
+                delay_seconds = random.uniform(300.0, 900.0)
             else:
                 FIL_STATUS["is_busy"] = False
                 FIL_STATUS["busy_until"] = None
@@ -174,7 +196,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         else:
             delay_seconds = random.uniform(6.0, 8.0)
         
-        # Бот молча думает почти всю задержку
         silence_time = max(0.5, delay_seconds - 3.0)
         await asyncio.sleep(silence_time)
 
@@ -202,10 +223,8 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             current_prompt = FIL_DEFAULT_PROMPT
             max_tok = 70
 
-        # Запрос к ИИ в фоновом режиме с защитой
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
         
-        # Проверка на уход по делам
         lower_ans = answer.lower()
         busy_keywords = ["магазин", "магаз", "дела", "работу", "отойду", "вернусь", "занят", "поем", "машине", "баре"]
         if any(word in lower_ans for word in busy_keywords) and not FIL_STATUS["is_busy"]:
@@ -215,11 +234,12 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             FIL_STATUS["busy_start_time"] = get_msk_now()
             FIL_STATUS["busy_reason"] = answer
 
-        parts = split_into_messages(answer)
+      parts = split_into_messages(answer)
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            typing_duration = max(1.5, min(char_count * 0.08, 3.5))
+            # Увеличили время «печати» и паузы между частями
+            typing_duration = max(2.0, min(char_count * 0.1, 4.5))
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -235,10 +255,10 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 reply_to_message_id=(last_msg_id if idx == 0 else None)
             )
 
+            # Реальная пауза между отправкой отдельных предложений
             if idx < len(parts) - 1:
-                await asyncio.sleep(random.uniform(1.0, 2.0))
+                await asyncio.sleep(random.uniform(2.5, 4.5))
 
-        # Редкий стикер (шанс 15% или если занят)
         if FIL_STICKERS and (random.random() < 0.15 or FIL_STATUS["is_busy"]):
             try:
                 chosen_sticker = random.choice(FIL_STICKERS)
@@ -252,11 +272,11 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 pass
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
+        save_chat_history(CHAT_HISTORY) # Сохраняем историю на диск
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
     except Exception as e:
         print("\n❌ ОШИБКА В PROCESS_DELAYED_REPLY:", repr(e))
-        # Сбрасываем зависшие таски при любой ошибке, чтобы бот не уходил в перманентный блок
         PENDING_TASKS.pop(chat_id, None)
 
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -335,9 +355,28 @@ async def auto_initiative_loop(app):
                 if chat_id not in CHAT_HISTORY:
                     CHAT_HISTORY[chat_id] = []
                 CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
-                LAST_DIALOG_INFO["last_activity"] = get_msk_now()
-        except Exception as e:
-            print("❌ Ошибка авто-инициативы:", e)
+     if idx < len(parts) - 1:
+                await asyncio.sleep(random.uniform(2.5, 4.5))
+
+        # Проверяем, есть ли в ответе Фила теплые или поддерживающие слова
+        warm_words = ["люблю", "скуч", "не грусти", "малыш", "зай", "рядом", "обнял"]
+        should_send_sticker = any(word in answer.lower() for word in warm_words)
+
+        if FIL_STICKERS and should_send_sticker:
+            try:
+                chosen_sticker = random.choice(FIL_STICKERS)
+                await asyncio.sleep(random.uniform(1.5, 2.5))
+                await context.bot.send_sticker(
+                    chat_id=chat_id,
+                    sticker=chosen_sticker,
+                    business_connection_id=business_connection_id
+                )
+            except Exception as e:
+                print("❌ Ошибка отправки стикера:", e)
+
+        CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
+        save_chat_history(CHAT_HISTORY)
+        LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
 async def handle_business_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.business_connection:
@@ -355,7 +394,6 @@ async def start_web_server():
     await site.start()
 
 async def main():
-    CHAT_HISTORY.clear()
     await start_web_server()
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
