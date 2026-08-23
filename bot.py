@@ -19,7 +19,7 @@ from telegram.ext import (
 # 🔑 КЛЮЧИ И НАСТРОЙКИ
 # ==============================
 
-TELEGRAM_BOT_TOKEN = "8710209166:AAEdqFFzmcO0QKnbd4aQNZn09VTrVJwo050"
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
