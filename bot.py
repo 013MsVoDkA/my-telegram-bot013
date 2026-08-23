@@ -128,7 +128,19 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
-    return [text.replace('\n', ' ').strip()]
+    clean_text = text.replace('\n', ' ').strip()
+    
+    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
+    
+    if len(sentences) >= 2:
+        return [sentences[0], " ".join(sentences[1:])]
+    
+    if ',' in clean_text:
+        parts = clean_text.rsplit(',', 1)
+        if len(parts[0]) > 10 and len(parts[1]) > 5:
+            return [parts[0].strip() + ',', parts[1].strip()]
+
+    return [clean_text]
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     delay_seconds = random.uniform(8.0, 14.0)
