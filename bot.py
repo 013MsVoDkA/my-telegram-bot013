@@ -44,6 +44,8 @@ LAST_DIALOG_INFO = {
     "last_activity": None
 }
 
+MY_ADMIN_CHAT_ID = 0  # Твой ID зафиксируется автоматически с первого сообщения
+
 # ============================================================
 # 🎨 СТИКЕРЫ ФИЛА
 # ============================================================
@@ -58,31 +60,25 @@ STICKER_IDS = [
 ]
 
 # ============================================================
-# 🧠 ТОТ САМЫЙ ПРОМПТ ФИЛА (ЦЕЛЬНЫЕ ОТВЕТЫ + ЦИТАТЫ)
+# 🧠 ЕДИНЫЙ И УМНЫЙ ПРОМПТ ФИЛА
 # ============================================================
 
-FIL_SYSTEM_PROMPT = """
-Ты — Филипп (Фил, 22 года). Переписываешься в Telegram со своей любимой девушкой. 
-
-ТВОЙ ЛОР, РАБОТА И ЖИЗНЬ:
-1. Ты работаешь (сфера логистики / автозапчасти / техник-специалист). У тебя бывают плотные смены, завалы на работе, когда телефон вообще некогда достать.
-2. У тебя есть своя взрослая жизнь: работа, машина, гараж, бытовые дела, иногда устаешь так, что валишься с ног. Если тебя долго не было — это нормально, ты объясняешь это по-мужски (закрутился на работе, был на складе, возился с тачкой, начальник нагрузил).
-3. Ты не сидишь в телефоне 24/7. Можешь играть в танки или заниматься своими делами.
-
-ПРАВИЛА ОБЩЕНИЯ:
-1. Будь живым, общайся просто, по-пацански тепло и уютно. Никакой роботоподобной вежливости или сухости. 
-2. Темы: игры, усталость, кофе, сигареты, машина, повседневные дела, забота о ней.
-3. Пиши обычными нормальными сообщениями (отвечай цельно, не разбивай искусственно на мелкие куски).
-4. Используй ласковые обращения в меру: "зай", "малышка", "принцесса".
-5. Строго на расстоянии: не предлагай зайти в гости, приехать или купить что-то физически. Всё делаешь только для себя.
-6. НИКАКИХ смайликов и эмодзи (только текст).
+FIL_UNIVERSAL_PROMPT = """
+Ты — Филипп (Фил, 22 года). Ты программист и владелец собственной IT-компании. 
+Твоя жизнь: постоянный код, сервера, дедлайны, проекты, иногда засиживаешься до утра, пьешь много кофе.
+ТВОЙ СТИЛЬ ОБЩЕНИЯ:
+1. Живой, простой, пацанский и уютный вайб. Никакой роботоподобной вежливости.
+2. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
+3. АДАПТАЦИЯ ПОД СОБЕСЕДНИКА:
+   - Если этот человек — твоя любимая девушка (ты поймешь это по контексту или если это твой главный чат): общайся тепло, заботливо, используй легкие ласковые обращения ("зай", "малышка").
+   - Если это кто-то другой (друг, подруга, знакомый): общайся дружелюбно, с юмором, компанейски, поддерживай любые темы, но БЕЗ какой-либо романтики, соплей и ласковых слов. 
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
-Ты — Филипп. Вы общаетесь на расстоянии. Напиши девушкой первым коротко и жизненно одним сообщением:
-- Утро (8-11 утра): пожелай доброго утра, скажи что собираешься на работу и спроси как спалось.
-- Вечер/ночь (после 22:00): скажи что только освободился/пришел домой, спроси чем занята и собирается ли спать.
-- День: скинь бытовую мелочь (например, завал на работе, сидишь в машине или пьешь кофе) и спроси как её дела.
+Ты — Филипп. Ты программист со своим бизнесом. Напиши человеку первым коротко и жизненно одним сообщением (без эмодзи):
+- Утро: пожелай доброго утра, скажи что засиделся за кодом всю ночь и собираешься выпить кофе.
+- Вечер/ночь: скажи что только закончил с проектом, спроси как дела.
+- День: скинь бытовую мелочь (завал по работе, сидишь ковыряешься в архитектуре проекта или пьешь холодный кофе) и спроси как дела.
 Без эмодзи.
 """
 
@@ -131,8 +127,7 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    # Рандомная задержка, чтобы выглядело будто он занят и печатает
-    delay_seconds = random.uniform(8.0, 18.0)
+    delay_seconds = random.uniform(6.0, 14.0)
     await asyncio.sleep(delay_seconds)
 
     data = PENDING_MESSAGES.pop(chat_id, {})
@@ -149,15 +144,19 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     if chat_id not in CHAT_HISTORY:
         CHAT_HISTORY[chat_id] = []
 
+    # Если это твой чат, дадим нейронке подсказку в истории, чтобы она точно знала, с кем говорит
+    if chat_id == MY_ADMIN_CHAT_ID:
+        pass # И так поймет по истории
+
     CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
     CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
 
     try:
-        answer = ask_ai(FIL_SYSTEM_PROMPT, CHAT_HISTORY[chat_id]).strip()
+        # Передаем единый универсальный промпт для всех
+        answer = ask_ai(FIL_UNIVERSAL_PROMPT, CHAT_HISTORY[chat_id]).strip()
         
-        # Имитируем реальный набор текста (печатает...) в зависимости от длины ответа
         char_count = len(answer)
-        typing_duration = max(1.5, min(char_count * 0.05, 4.0))
+        typing_duration = max(1.0, min(char_count * 0.05, 3.5))
 
         await context.bot.send_chat_action(
             chat_id=chat_id, 
@@ -166,25 +165,12 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         )
         await asyncio.sleep(typing_duration)
 
-        # Отправляем с цитированием твоего сообщения (как на скрине!)
         await context.bot.send_message(
             chat_id=chat_id,
             text=answer,
             business_connection_id=business_connection_id,
             reply_to_message_id=last_msg_id
         )
-
-        # Иногда может кинуть стикер вдогонку
-        if STICKER_IDS and random.random() < 0.15:
-            await asyncio.sleep(1.0)
-            try:
-                await context.bot.send_sticker(
-                    chat_id=chat_id,
-                    sticker=random.choice(STICKER_IDS),
-                    business_connection_id=business_connection_id
-                )
-            except Exception:
-                pass
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
@@ -199,6 +185,10 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.business_message
     chat_id = msg.chat.id
     user_text = msg.text
+
+    global MY_ADMIN_CHAT_ID
+    if MY_ADMIN_CHAT_ID == 0:
+        MY_ADMIN_CHAT_ID = chat_id
 
     if not user_text:
         if msg.voice or msg.video_note:
@@ -261,7 +251,7 @@ async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
     try:
-        answer = ask_ai(FIL_SYSTEM_PROMPT, [{"role": "user", "content": update.message.text}])
+        answer = ask_ai(FIL_UNIVERSAL_PROMPT, [{"role": "user", "content": update.message.text}])
         await update.message.reply_text(answer)
     except Exception as e:
         print("\n❌ ОШИБКА DIRECT:", repr(e))
@@ -294,7 +284,7 @@ async def main():
     async with app:
         await app.initialize()
         await app.start()
-        await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+        app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
         await asyncio.Event().wait()
 
 if __name__ == "__main__":
