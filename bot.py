@@ -2,6 +2,7 @@ import logging
 import os
 import random
 import asyncio
+import re
 import requests
 import httpx
 from datetime import datetime, timezone, timedelta
@@ -57,7 +58,7 @@ FIL_LOVE_PROMPT = """
 2. Ты серьезный, уверенный в себе мужчина со стержнем. Никаких соплей, нытья и поэзии. 
 3. Ты спокойный, адекватный, не грубишь, но держишь себя солидно. Умеешь проявить внимание и заботу по-мужски (надежно, коротко, по делу).
 4. Используй легкие ласковые слова ("Милая", "малышка", "дорогая", "любимая"), но в меру.
-5. ЖЕСТКОЕ ПРАВИЛО ФОРМАТА: Твой ответ ОБЯЗАТЕЛЬНО должен состоять из 2 или 3 отдельных абзацев (разделяй их пустой строкой / двойным переносом). Абсолютно запрещено писать всё в один сплошной абзац! Каждый абзац — это отдельная короткая мысль.
+5. Пиши емко, но разделяй свои мысли на несколько предложений, чтобы бот мог отправить их раздельно.
 6. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
 """
 
@@ -70,14 +71,13 @@ FIL_DEFAULT_PROMPT = """
 3. Ты серьезный, уверенный в себе мужчина со стержнем. Никаких соплей, нытья и поэзии. 
 4. Умеешь проявить внимание и заботу по-мужски (надежно, коротко, по делу).
 5. НЕ используй легкие ласковые слова ("зай", "малышка", "милая").
-6. ЖЕСТКОЕ ПРАВИЛО ФОРМАТА: Разделяй свои мысли на 2-3 абзаца (через пустую строку).
-7. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
+6. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
 Ты — Филипп (парень). Ты программист со своим бизнесом. Напиши своей любимой девушке первой коротко и жизненно:
 - Пожелай доброго утра/вечера, скажи что засиделся за кодом, спроси как дела, используй ласковое обращение ("Любимая").
-Говори о себе только в мужском роде. Напиши это двумя отдельными абзацами (через пустую строку).
+Говори о себе только в мужском роде. Напиши парой разных фраз.
 Без эмодзи.
 """
 
@@ -93,7 +93,7 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.5,
+        "temperature": 0.6,
         "max_tokens": 150,
     }
 
@@ -125,6 +125,20 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
     except Exception:
         return "(голосовое/кружок)"
 
+def split_into_messages(text: str) -> list:
+    """Принудительно режет текст на несколько сообщений по абзацам или предложениям"""
+    # Сначала пробуем разделить по абзацам
+    parts = [p.strip() for p in text.split('\n') if p.strip()]
+    
+    # Если абзац всего один (или нет переносов), режем по предложениям (. ! ?)
+    if len(parts) <= 1:
+        sentences = re.split(r'(?<=[.!?])\s+', text)
+        parts = [s.strip() for s in sentences if s.strip()]
+        
+    if not parts:
+        parts = [text]
+    return parts
+
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     delay_seconds = random.uniform(5.0, 10.0)
     await asyncio.sleep(delay_seconds)
@@ -154,10 +168,8 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id]).strip()
         
-        # Жестко делим по двойному переносу строки (абзацам), которые теперь требует промпт
-        parts = [p.strip() for p in answer.split('\n\n') if p.strip()]
-        if not parts:
-            parts = [answer]
+        # Принудительно разбиваем ответ на несколько частей программно
+        parts = split_into_messages(answer)
 
         for i, part in enumerate(parts):
             char_count = len(part)
@@ -179,7 +191,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 reply_to_message_id=reply_id
             )
             
-            # Пауза между отправкой отдельных сообщений-абзацев
+            # Пауза между отправкой отдельных кусков (чтобы летело пачкой)
             if len(parts) > 1 and i < len(parts) - 1:
                 await asyncio.sleep(random.uniform(3.0, 5.0))
 
@@ -247,9 +259,7 @@ async def auto_initiative_loop(app):
                 history = CHAT_HISTORY.get(chat_id, [])
                 answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history).strip()
                 
-                parts = [p.strip() for p in answer.split('\n\n') if p.strip()]
-                if not parts:
-                    parts = [answer]
+                parts = split_into_messages(answer)
 
                 for i, part in enumerate(parts):
                     await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=business_conn_id)
