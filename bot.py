@@ -80,7 +80,6 @@ FIL_STICKERS = [
     "CAACAgIAAxkBAAEt7slqiwhqxhmc7FUsY-EQsXkVtmevgQACPiIAAlVnMEl8llJpuz-g9z0E",
     "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
     "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
-    # "CAACAgIAAxkBAAE...", 
 ]
 
 # ============================================================
@@ -356,28 +355,11 @@ async def auto_initiative_loop(app):
                 if chat_id not in CHAT_HISTORY:
                     CHAT_HISTORY[chat_id] = []
                 CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
-     if idx < len(parts) - 1:
-                await asyncio.sleep(random.uniform(2.5, 4.5))
+                save_chat_history(CHAT_HISTORY)
+                LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
-        # Проверяем, есть ли в ответе Фила теплые или поддерживающие слова
-        warm_words = ["люблю", "скуч", "не грусти", "малыш", "зай", "рядом", "обнял"]
-        should_send_sticker = any(word in answer.lower() for word in warm_words)
-
-        if FIL_STICKERS and should_send_sticker:
-            try:
-                chosen_sticker = random.choice(FIL_STICKERS)
-                await asyncio.sleep(random.uniform(1.5, 2.5))
-                await context.bot.send_sticker(
-                    chat_id=chat_id,
-                    sticker=chosen_sticker,
-                    business_connection_id=business_connection_id
-                )
-            except Exception as e:
-                print("❌ Ошибка отправки стикера:", e)
-
-        CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
-        save_chat_history(CHAT_HISTORY)
-        LAST_DIALOG_INFO["last_activity"] = get_msk_now()
+        except Exception as e:
+            print("❌ Ошибка авто-инициативы:", e)
 
 async def handle_business_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.business_connection:
