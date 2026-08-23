@@ -25,6 +25,9 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
+# Вставь сюда цифры, которые ты узнал (вместо нулей, обязательно без кавычек, просто число):
+TARGET_LOVE_CHAT_ID = 1257683623
+
 MSK_TZ = timezone(timedelta(hours=3))
 
 def get_msk_now():
@@ -93,7 +96,7 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 90) -> 
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.5,
+        "temperature": 0.7,
         "max_tokens": max_tokens,
     }
 
@@ -214,7 +217,10 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     global MY_ADMIN_CHAT_ID
     if MY_ADMIN_CHAT_ID == 0:
-        MY_ADMIN_CHAT_ID = chat_id
+        if TARGET_LOVE_CHAT_ID != 0:
+            MY_ADMIN_CHAT_ID = TARGET_LOVE_CHAT_ID
+        else:
+            MY_ADMIN_CHAT_ID = chat_id
 
     if not user_text:
         if msg.voice or msg.video_note:
@@ -280,7 +286,8 @@ async def auto_initiative_loop(app):
 
                 if chat_id not in CHAT_HISTORY:
                     CHAT_HISTORY[chat_id] = []
-                CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
+            sent_text_combined = " ".join(parts)
+CHAT_HISTORY[chat_id].append({"role": "assistant", "content": sent_text_combined})
                 LAST_DIALOG_INFO["last_activity"] = get_msk_now()
             except Exception as e:
                 print("❌ Ошибка авто-инициативы:", e)
