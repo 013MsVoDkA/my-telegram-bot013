@@ -403,7 +403,6 @@ def main():
         port=PORT,
         webhook_url=webhook_url,
         allowed_updates=["message", "business_message", "business_connection", "edited_business_message"],
-        skip_pending=True
     )
 
 if __name__ == "__main__":
