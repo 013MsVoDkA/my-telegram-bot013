@@ -240,7 +240,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            # Увеличенное время печати, чтобы бот не строчил слишком быстро
             typing_duration = max(3.0, min(char_count * 0.15, 6.0))
 
             await context.bot.send_chat_action(
@@ -258,13 +257,11 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             )
 
             if idx < len(parts) - 1:
-                # Паузы между частями предложения стали более естественными и долгими
                 await asyncio.sleep(random.uniform(4.0, 7.0))
 
         warm_words = ["люблю", "скуч", "не грусти", "малыш", "зай", "рядом", "обнял"]
         should_send_sticker = any(word in answer.lower() for word in warm_words)
 
-        # Снизили шанс отправки стикера до 20% даже при наличии теплых слов, чтобы не спамил
         if FIL_STICKERS and should_send_sticker and random.random() < 0.20:
             try:
                 chosen_sticker = random.choice(FIL_STICKERS)
@@ -393,7 +390,7 @@ async def main():
 
     await app.initialize()
     await app.start()
-    app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
     
     stop_event = asyncio.Event()
     await stop_event.wait()
