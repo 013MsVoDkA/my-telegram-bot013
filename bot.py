@@ -58,7 +58,7 @@ FIL_LOVE_PROMPT = """
 2. Ты серьезный, уверенный в себе мужчина со стержнем. Никаких соплей, нытья и поэзии. 
 3. Ты спокойный, адекватный, не грубишь, но держишь себя солидно. Умеешь проявить внимание и заботу по-мужски (надежно, коротко, по делу).
 4. Используй легкие ласковые слова ("Милая", "малышка", "дорогая", "любимая"), но в меру.
-5. Пиши емко, но разделяй свои мысли на несколько предложений, чтобы бот мог отправить их раздельно.
+5. Пиши емко, но разделяй свои мысли на пару предложений.
 6. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
 """
 
@@ -77,7 +77,7 @@ FIL_DEFAULT_PROMPT = """
 FIL_AUTO_INITIATIVE_PROMPT = """
 Ты — Филипп (парень). Ты программист со своим бизнесом. Напиши своей любимой девушке первой коротко и жизненно:
 - Пожелай доброго утра/вечера, скажи что засиделся за кодом, спроси как дела, используй ласковое обращение ("Любимая").
-Говори о себе только в мужском роде. Напиши парой разных фраз.
+Говори о себе только в мужском роде. 
 Без эмодзи.
 """
 
@@ -93,7 +93,7 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
-        "temperature": 0.6,
+        "temperature": 0.5,
         "max_tokens": 150,
     }
 
@@ -126,18 +126,18 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
-    """Принудительно режет текст на несколько сообщений по абзацам или предложениям"""
-    # Сначала пробуем разделить по абзацам
-    parts = [p.strip() for p in text.split('\n') if p.strip()]
+    """Режет текст строго максимум на 2 осмысленные части, чтобы не было спама"""
+    clean_text = text.replace('\n', ' ').strip()
+    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
     
-    # Если абзац всего один (или нет переносов), режем по предложениям (. ! ?)
-    if len(parts) <= 1:
-        sentences = re.split(r'(?<=[.!?])\s+', text)
-        parts = [s.strip() for s in sentences if s.strip()]
-        
-    if not parts:
-        parts = [text]
-    return parts
+    if len(sentences) <= 1:
+        return [clean_text]
+    
+    # Делим ровно на 2 куска: всё основное и последняя фраза-добавка
+    first_part = " ".join(sentences[:-1])
+    second_part = sentences[-1]
+    
+    return [first_part, second_part]
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     delay_seconds = random.uniform(5.0, 10.0)
@@ -168,12 +168,11 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id]).strip()
         
-        # Принудительно разбиваем ответ на несколько частей программно
         parts = split_into_messages(answer)
 
         for i, part in enumerate(parts):
             char_count = len(part)
-            typing_duration = max(2.0, min(char_count * 0.1, 5.0))
+            typing_duration = max(3.0, min(char_count * 0.08, 6.0))
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -191,9 +190,9 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 reply_to_message_id=reply_id
             )
             
-            # Пауза между отправкой отдельных кусков (чтобы летело пачкой)
+            # Человеческая пауза между сообщениями (от 5 до 9 секунд)
             if len(parts) > 1 and i < len(parts) - 1:
-                await asyncio.sleep(random.uniform(3.0, 5.0))
+                await asyncio.sleep(random.uniform(5.0, 9.0))
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
@@ -266,7 +265,7 @@ async def auto_initiative_loop(app):
                     await asyncio.sleep(2.0)
                     await app.bot.send_message(chat_id=chat_id, text=part, business_connection_id=business_conn_id)
                     if len(parts) > 1 and i < len(parts) - 1:
-                        await asyncio.sleep(3.0)
+                        await asyncio.sleep(5.0)
 
                 if chat_id not in CHAT_HISTORY:
                     CHAT_HISTORY[chat_id] = []
