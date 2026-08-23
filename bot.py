@@ -144,15 +144,10 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     if chat_id not in CHAT_HISTORY:
         CHAT_HISTORY[chat_id] = []
 
-    # Если это твой чат, дадим нейронке подсказку в истории, чтобы она точно знала, с кем говорит
-    if chat_id == MY_ADMIN_CHAT_ID:
-        pass # И так поймет по истории
-
     CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
     CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
 
     try:
-        # Передаем единый универсальный промпт для всех
         answer = ask_ai(FIL_UNIVERSAL_PROMPT, CHAT_HISTORY[chat_id]).strip()
         
         char_count = len(answer)
@@ -282,9 +277,9 @@ async def main():
     asyncio.create_task(auto_initiative_loop(app))
 
     async with app:
-        await app.initialize()
         await app.start()
-        app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+        # Исправлен запуск поллинга через корректный асинхронный метод
+        await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
         await asyncio.Event().wait()
 
 if __name__ == "__main__":
