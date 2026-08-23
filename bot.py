@@ -21,7 +21,6 @@ from telegram.ext import (
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-PORT = int(os.environ.get("PORT", 8080))
 
 # Вставь сюда свой URL на Render (без слэша на конце), например: https://my-telegram-bot01322.onrender.com
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://my-telegram-bot01322.onrender.com")
@@ -398,11 +397,14 @@ def main():
     # Настройка вебхука вместо polling
     webhook_url = f"{RENDER_EXTERNAL_URL.rstrip('/')}/{TELEGRAM_BOT_TOKEN}"
     
+    # Порт для Render (берет переменную окружения PORT, по умолчанию 10000)
+    port = int(os.environ.get("PORT", 10000))
+    
     app.run_webhook(
         listen="0.0.0.0",
-        port=PORT,
+        port=port,
         webhook_url=webhook_url,
-        allowed_updates=["message", "business_message", "business_connection", "edited_business_message"],
+        allowed_updates=["message", "edited_message", "business_message", "edited_business_message", "business_connection"],
     )
 
 if __name__ == "__main__":
