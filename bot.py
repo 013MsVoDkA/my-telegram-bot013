@@ -24,6 +24,9 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
+# Твой публичный URL на Render (обязательно укажи в переменных среды на Render или вставь сюда)
+RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://my-telegram-bot01322.onrender.com")
+
 TARGET_LOVE_CHAT_ID = 1257683623
 
 MSK_TZ = timezone(timedelta(hours=3))
@@ -75,7 +78,7 @@ FIL_STATUS = {
     "busy_start_time": None
 }
 
-# Список стикеров (сюда можно вставить file_id стикеров)
+# Список стикеров
 FIL_STICKERS = [
     "CAACAgIAAxkBAAEt7slqiwhqxhmc7FUsY-EQsXkVtmevgQACPiIAAlVnMEl8llJpuz-g9z0E",
     "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
@@ -144,18 +147,14 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) ->
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
     }
-
     payload_messages = [{"role": "system", "content": system_prompt}] + messages_history
-
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
         "temperature": 0.7,
         "max_tokens": max_tokens,
     }
-
     response = requests.post(url, json=payload, headers=headers, timeout=25)
-
     if response.status_code == 200:
         data = response.json()
         return data["choices"][0]["message"]["content"]
@@ -165,12 +164,10 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) ->
 async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
     if not GROQ_API_KEY:
         return "[Голосовое/кружок]"
-
     groq_url = "https://api.groq.com/openai/v1/audio/transcriptions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
     files = {"file": (filename, bytes(file_bytes))}
     data = {"model": "whisper-large-v3"}
-
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(groq_url, headers=headers, data=data, files=files)
@@ -192,7 +189,6 @@ def split_into_messages(text: str) -> list:
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     try:
         now = get_msk_now()
-
         if FIL_STATUS["is_busy"]:
             if FIL_STATUS["busy_start_time"] and (now - FIL_STATUS["busy_start_time"]).total_seconds() > 2400:
                 FIL_STATUS["is_busy"] = False
@@ -252,7 +248,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            typing_duration = max(3.0, min(char_count * 0.15, 6.0))
+            typing_duration = max(3.0, min(char_count * 0.12, 5.0))
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -383,6 +379,18 @@ async def handle_business_connection(update: Update, context: ContextTypes.DEFAU
 async def handle_ping(request):
     return web.Response(text="Bot is live!")
 
+# Автопинг, чтобы Render не усыплял бесплатный инстанс
+async def self_ping_loop():
+    await asyncio.sleep(30)
+    url = f"{RENDER_EXTERNAL_URL.rstrip('/')}/"
+    while True:
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                await client.get(url)
+        except Exception:
+            pass
+        await asyncio.sleep(300)   каждые 5 минут пингуем сами себя
+
 async def start_web_server():
     app = web.Application()
     app.router.add_get("/", handle_ping)
@@ -393,6 +401,8 @@ async def start_web_server():
 
 async def main():
     await start_web_server()
+    asyncio.create_task(self_ping_loop())
+
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
