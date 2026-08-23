@@ -47,7 +47,7 @@ LAST_DIALOG_INFO = {
     "last_activity": None
 }
 
-MY_ADMIN_CHAT_ID = 0
+MY_ADMIN_CHAT_ID = 1257683623
 
 # ============================================================
 # 🧠 ПРОМПТЫ ФИЛА
@@ -67,7 +67,8 @@ FIL_LOVE_PROMPT = """
 """
 
 FIL_DEFAULT_PROMPT = """
-Ты — Филипп (Фил, 22 года), парень. Ты программист и владелец собственной IT-компании. 
+Ты — Филипп (Фил, 22 года), парень. Ты программист и владелец собственной IT-компании.
+ВАЖНО: ВЫ ОБЩАЕТЕСЬ НА РАССТОЯНИИ (В ИНТЕРНЕТЕ).  Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
 СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
 1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде.
 2. Внимательно читай сообщения, улавливай смысл. Мат — это нормально.
@@ -81,6 +82,7 @@ FIL_DEFAULT_PROMPT = """
 FIL_AUTO_INITIATIVE_PROMPT = """
 Ты — Филипп (парень). Ты программист со своим бизнесом. Вы общаетесь на расстоянии. Напиши своей любимой девушке первой коротко и жизненно:
 - Пожелай доброго утра/вечера, скажи что засиделся за кодом, спроси как дела, используй ласковое обращение («Любимая»).
+В ДНЕВНОЕ ВРЕМЯ:(10-23) напиши краткую жизу ("Чем занимаешься, зай?", "Сделал кофе", "В машине сижу", "На работу заехал", "Сегодня в баре отдыхаю", "На квартире у Кирилла сегодня, с парнями.").
 Говори о себе только в мужском роде. Никаких встреч в реале.
 Без тире. Без эмодзи.
 """
@@ -130,28 +132,32 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
-    """Чистим тире и делим текст на логические части (максимум 2)"""
     clean_text = text.replace('—', ' ').replace('–', ' ').replace('\n', ' ').strip()
-    
     sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
-    
     if not sentences:
         return [clean_text]
-        
-    return sentences[:3]
+    return sentences[:4]
+
+async def keep_typing(context, chat_id, business_connection_id, duration):
+    elapsed = 0
+    while elapsed < duration:
+        try:
+            await context.bot.send_chat_action(
+                chat_id=chat_id, 
+                action="typing", 
+                business_connection_id=business_connection_id
+            )
+        except Exception:
+            pass
+        await asyncio.sleep(4)
+        elapsed += 4
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    # Стабильная пауза от 12 до 18 секунд, чтобы ты успевала дописывать
-    delay_seconds = random.uniform(12.0, 18.0)
+    delay_seconds = random.uniform(6.0, 8.0)
     
-    # Включаем «печатает...» пока ждем или в процессе мышления
-    await context.bot.send_chat_action(
-        chat_id=chat_id, 
-        action="typing", 
-        business_connection_id=business_connection_id
-    )
-
+    typing_task = asyncio.create_task(keep_typing(context, chat_id, business_connection_id, delay_seconds))
     await asyncio.sleep(delay_seconds)
+    typing_task.cancel()
 
     data = PENDING_MESSAGES.pop(chat_id, {})
     PENDING_TASKS.pop(chat_id, None)
@@ -179,14 +185,12 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             max_tok = 70
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
-        
         parts = split_into_messages(answer)
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            typing_duration = max(2.0, min(char_count * 0.09, 4.0))
+            typing_duration = max(1.5, min(char_count * 0.08, 3.5))
 
-            # Показываем статус печати перед каждой частью сообщения
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
@@ -202,7 +206,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             )
 
             if idx < len(parts) - 1:
-                await asyncio.sleep(random.uniform(1.2, 2.5))
+                await asyncio.sleep(random.uniform(1.0, 2.0))
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
@@ -257,22 +261,17 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
         process_delayed_reply(chat_id, msg.business_connection_id, context)
     )
 
-  async def auto_initiative_loop(app):
+async def auto_initiative_loop(app):
     await asyncio.sleep(20)
     while True:
-        # Проверяем каждые 3 минуты
         await asyncio.sleep(180)
-        
         chat_id = LAST_DIALOG_INFO["chat_id"] or TARGET_LOVE_CHAT_ID
         business_conn_id = LAST_DIALOG_INFO["business_connection_id"]
         last_activity = LAST_DIALOG_INFO["last_activity"]
 
-        # Если активности вообще не было (например, бот только перезапустился), 
-        # то считаем время от текущего момента или берем дефолт
         if not last_activity:
             continue
 
-        # Проверяем, прошло ли 40 минут с последнего сообщения
         if (get_msk_now() - last_activity).total_seconds() / 60.0 >= 40.0:
             try:
                 history = CHAT_HISTORY.get(chat_id, [])
@@ -286,8 +285,6 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await asyncio.sleep(typing_duration)
                     await app.bot.send_message(chat_id=chat_id, text=answer, business_connection_id=business_conn_id)
                 else:
-                    # Если business_connection_id потерялся после перезагрузки Render, 
-                    # отправляем обычным сообщением в личку (или через бизнес, если он подтянется)
                     await app.bot.send_message(chat_id=chat_id, text=answer)
 
                 if chat_id not in CHAT_HISTORY:
