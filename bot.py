@@ -2,6 +2,7 @@ import logging
 import os
 import random
 import asyncio
+import re
 import requests
 import httpx
 from datetime import datetime, timezone, timedelta
@@ -57,7 +58,7 @@ FIL_LOVE_PROMPT = """
 2. Ты серьезный, уверенный в себе мужчина со стержнем. Никаких соплей, нытья и поэзии. 
 3. Ты спокойный, адекватный, не грубишь, но держишь себя солидно. Умеешь проявить внимание и заботу по-мужски (надежно, коротко, по делу).
 4. Используй легкие ласковые слова ("Милая", "малышка", "дорогая", "любимая"), но в меру — без перебора.
-5. Структура: можешь отвечать несколькими короткими сообщениями подряд (по 1-2 предложения), чтобы диалог выглядел живым, но каждое сообщение должно быть емким и по делу.
+5. Структура: ОБЯЗАТЕЛЬНО отвечай НЕСКОЛЬКИМИ короткими сообщениями подряд (дебильные полотна текста запрещены! Разделяй свои мысли на 2-3 коротких сообщения, отправляя их отдельными абзацами/строками).
 6. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
 """
 
@@ -70,14 +71,14 @@ FIL_DEFAULT_PROMPT = """
 3. Ты серьезный, уверенный в себе мужчина со стержнем. Никаких соплей, нытья и поэзии. 
 4. Умеешь проявить внимание и заботу по-мужски (надежно, коротко, по делу).
 5. НЕ используй легкие ласковые слова ("зай", "малышка", "милая").
-6. Структура: можешь отвечать несколькими короткими сообщениями подряд (по 1-2 предложения), чтобы диалог выглядел живым, но каждое сообщение должно быть емким и по делу.
+6. Структура: ОБЯЗАТЕЛЬНО отвечай НЕСКОЛЬКИМИ короткими сообщениями подряд (разбивай текст на 2-3 коротких сообщения отдельными строками).
 7. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
 Ты — Филипп (парень). Ты программист со своим бизнесом. Напиши своей любимой девушке первой коротко и жизненно:
 - Пожелай доброго утра/вечера, скажи что засиделся за кодом, спроси как дела, используй ласковое обращение ("Любимая").
-Говори о себе только в мужском роде.
+Говори о себе только в мужском роде. Разбивай на 2 коротких сообщения (каждое с новой строки).
 Без эмодзи.
 """
 
@@ -154,13 +155,19 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id]).strip()
         
+        # Улучшенное разбиение: делим сначала по переносам строк, а если их нет — по точкам/вопросам/восклицаниям
         parts = [p.strip() for p in answer.split('\n') if p.strip()]
+        if len(parts) <= 1:
+            # Если бот написал всё в одну строку, принудительно режем по предложениям
+            sentences = re.split(r'(?<=[.!?])\s+', answer)
+            parts = [s.strip() for s in sentences if s.strip()]
+
         if not parts:
             parts = [answer]
 
         for i, part in enumerate(parts):
             char_count = len(part)
-            typing_duration = max(2.5, min(char_count * 0.12, 7.0))
+            typing_duration = max(2.0, min(char_count * 0.1, 5.0))
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -178,8 +185,9 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 reply_to_message_id=reply_id
             )
             
+            # Пауза между отправкой отдельных сообщений (чтобы летело пачкой с паузами)
             if len(parts) > 1 and i < len(parts) - 1:
-                await asyncio.sleep(random.uniform(4.0, 7.0))
+                await asyncio.sleep(random.uniform(3.0, 5.0))
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
@@ -245,9 +253,16 @@ async def auto_initiative_loop(app):
                 history = CHAT_HISTORY.get(chat_id, [])
                 answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history).strip()
                 
-                await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=business_conn_id)
-                await asyncio.sleep(2.0)
-                await app.bot.send_message(chat_id=chat_id, text=answer, business_connection_id=business_conn_id)
+                parts = [p.strip() for p in answer.split('\n') if p.strip()]
+                if not parts:
+                    parts = [answer]
+
+                for i, part in enumerate(parts):
+                    await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=business_conn_id)
+                    await asyncio.sleep(2.0)
+                    await app.bot.send_message(chat_id=chat_id, text=part, business_connection_id=business_conn_id)
+                    if len(parts) > 1 and i < len(parts) - 1:
+                        await asyncio.sleep(3.0)
 
                 if chat_id not in CHAT_HISTORY:
                     CHAT_HISTORY[chat_id] = []
