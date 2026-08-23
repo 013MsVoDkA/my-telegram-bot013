@@ -176,8 +176,16 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     else:
         delay_seconds = random.uniform(6.0, 8.0)
     
-    typing_task = asyncio.create_task(keep_typing(context, chat_id, business_connection_id, delay_seconds))
-    await asyncio.sleep(delay_seconds)
+    # 1. СНАЧАЛА ОН ПРОСТО ДУМАЕТ (молчит без статуса печати)
+    # Если задержка большая (когда занят), ждем почти всё время, а печатаем только в конце.
+    # Если задержка обычная (6-8 сек), то думает первые 3-4 секунды.
+    typing_start_delay = max(0.5, delay_seconds - 3.5)
+    await asyncio.sleep(typing_start_delay)
+
+    # 2. И ТОЛЬКО ПОТОМ ВКЛЮЧАЕТСЯ СТАТУС ПЕЧАТИ НА ПОСЛЕДНИЕ СЕКУНДЫ
+    remaining_time = delay_seconds - typing_start_delay
+    typing_task = asyncio.create_task(keep_typing(context, chat_id, business_connection_id, remaining_time))
+    await asyncio.sleep(remaining_time)
     typing_task.cancel()
 
     data = PENDING_MESSAGES.pop(chat_id, {})
