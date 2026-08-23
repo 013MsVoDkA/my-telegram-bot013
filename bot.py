@@ -151,20 +151,6 @@ def split_into_messages(text: str) -> list:
         return [clean_text]
     return sentences[:4]
 
-async def keep_typing(context, chat_id, business_connection_id, duration):
-    elapsed = 0
-    while elapsed < duration:
-        try:
-            await context.bot.send_chat_action(
-                chat_id=chat_id, 
-                action="typing", 
-                business_connection_id=business_connection_id
-            )
-        except Exception:
-            pass
-        await asyncio.sleep(4)
-        elapsed += 4
-
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     # Логика рандомной занятости
     if FIL_STATUS["is_busy"]:
@@ -176,17 +162,9 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     else:
         delay_seconds = random.uniform(6.0, 8.0)
     
-    # 1. СНАЧАЛА ОН ПРОСТО ДУМАЕТ (молчит без статуса печати)
-    # Если задержка большая (когда занят), ждем почти всё время, а печатаем только в конце.
-    # Если задержка обычная (6-8 сек), то думает первые 3-4 секунды.
-    typing_start_delay = max(0.5, delay_seconds - 3.5)
-    await asyncio.sleep(typing_start_delay)
-
-    # 2. И ТОЛЬКО ПОТОМ ВКЛЮЧАЕТСЯ СТАТУС ПЕЧАТИ НА ПОСЛЕДНИЕ СЕКУНДЫ
-    remaining_time = delay_seconds - typing_start_delay
-    typing_task = asyncio.create_task(keep_typing(context, chat_id, business_connection_id, remaining_time))
-    await asyncio.sleep(remaining_time)
-    typing_task.cancel()
+    # Бот просто молча ждет почти всю задержку (никаких статусов печати)
+    silence_time = max(0.5, delay_seconds - 3.0)
+    await asyncio.sleep(silence_time)
 
     data = PENDING_MESSAGES.pop(chat_id, {})
     PENDING_TASKS.pop(chat_id, None)
@@ -230,6 +208,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             char_count = len(part)
             typing_duration = max(1.5, min(char_count * 0.08, 3.5))
 
+            # Статус печати включается прямо перед отправкой каждого кусочка сообщения
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
