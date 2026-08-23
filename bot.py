@@ -24,9 +24,6 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
-# Твой домен на Render для вебхука (подставь свой или бери из переменных окружения)
-RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://my-telegram-bot01322.onrender.com")
-
 TARGET_LOVE_CHAT_ID = 1257683623
 
 MSK_TZ = timezone(timedelta(hours=3))
@@ -70,7 +67,15 @@ LAST_DIALOG_INFO = {
 
 MY_ADMIN_CHAT_ID = 1257683623
 
-# Список стикеров
+# Статус занятости Фила
+FIL_STATUS = {
+    "is_busy": False,
+    "busy_until": None,
+    "busy_reason": "",
+    "busy_start_time": None
+}
+
+# Список стикеров (сюда можно вставить file_id стикеров)
 FIL_STICKERS = [
     "CAACAgIAAxkBAAEt7slqiwhqxhmc7FUsY-EQsXkVtmevgQACPiIAAlVnMEl8llJpuz-g9z0E",
     "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
@@ -139,14 +144,18 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) ->
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
     }
+
     payload_messages = [{"role": "system", "content": system_prompt}] + messages_history
+
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
         "temperature": 0.7,
         "max_tokens": max_tokens,
     }
+
     response = requests.post(url, json=payload, headers=headers, timeout=25)
+
     if response.status_code == 200:
         data = response.json()
         return data["choices"][0]["message"]["content"]
@@ -156,10 +165,12 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) ->
 async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
     if not GROQ_API_KEY:
         return "[Голосовое/кружок]"
+
     groq_url = "https://api.groq.com/openai/v1/audio/transcriptions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
     files = {"file": (filename, bytes(file_bytes))}
     data = {"model": "whisper-large-v3"}
+
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(groq_url, headers=headers, data=data, files=files)
@@ -180,8 +191,27 @@ def split_into_messages(text: str) -> list:
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     try:
-        delay_seconds = random.uniform(3.0, 5.0)
-        await asyncio.sleep(delay_seconds)
+        now = get_msk_now()
+
+        if FIL_STATUS["is_busy"]:
+            if FIL_STATUS["busy_start_time"] and (now - FIL_STATUS["busy_start_time"]).total_seconds() > 2400:
+                FIL_STATUS["is_busy"] = False
+                FIL_STATUS["busy_until"] = None
+                FIL_STATUS["busy_start_time"] = None
+
+        if FIL_STATUS["is_busy"]:
+            if FIL_STATUS["busy_until"] and now < FIL_STATUS["busy_until"]:
+                delay_seconds = random.uniform(300.0, 900.0)
+            else:
+                FIL_STATUS["is_busy"] = False
+                FIL_STATUS["busy_until"] = None
+                FIL_STATUS["busy_start_time"] = None
+                delay_seconds = random.uniform(6.0, 8.0)
+        else:
+            delay_seconds = random.uniform(6.0, 8.0)
+        
+        silence_time = max(0.5, delay_seconds - 3.0)
+        await asyncio.sleep(silence_time)
 
         data = PENDING_MESSAGES.pop(chat_id, {})
         PENDING_TASKS.pop(chat_id, None)
@@ -208,11 +238,21 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             max_tok = 70
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
+        
+        lower_ans = answer.lower()
+        busy_keywords = ["магазин", "магаз", "дела", "работу", "отойду", "вернусь", "занят", "поем", "машине", "баре"]
+        if any(word in lower_ans for word in busy_keywords) and not FIL_STATUS["is_busy"]:
+            FIL_STATUS["is_busy"] = True
+            min_away = random.randint(20, 50)
+            FIL_STATUS["busy_until"] = get_msk_now() + timedelta(minutes=min_away)
+            FIL_STATUS["busy_start_time"] = get_msk_now()
+            FIL_STATUS["busy_reason"] = answer
+
         parts = split_into_messages(answer)
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            typing_duration = max(2.0, min(char_count * 0.1, 4.0))
+            typing_duration = max(3.0, min(char_count * 0.15, 6.0))
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -229,7 +269,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             )
 
             if idx < len(parts) - 1:
-                await asyncio.sleep(random.uniform(2.0, 4.0))
+                await asyncio.sleep(random.uniform(4.0, 7.0))
 
         warm_words = ["люблю", "скуч", "не грусти", "малыш", "зай", "рядом", "обнял"]
         should_send_sticker = any(word in answer.lower() for word in warm_words)
@@ -237,7 +277,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         if FIL_STICKERS and should_send_sticker and random.random() < 0.20:
             try:
                 chosen_sticker = random.choice(FIL_STICKERS)
-                await asyncio.sleep(random.uniform(1.5, 3.0))
+                await asyncio.sleep(random.uniform(2.5, 4.0))
                 await context.bot.send_sticker(
                     chat_id=chat_id,
                     sticker=chosen_sticker,
@@ -255,16 +295,12 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         PENDING_TASKS.pop(chat_id, None)
 
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(f"\n📩 ПОЛУЧЕН UPDATE: {update.to_json()}\n")
-
     if not update.business_message:
         return
 
     msg = update.business_message
     chat_id = msg.chat.id
     user_text = msg.text
-    
-    print(f"💬 Успешно пойман бизнес-месседж из чата {chat_id}: {user_text}")
 
     global MY_ADMIN_CHAT_ID
     if MY_ADMIN_CHAT_ID == 0:
@@ -322,7 +358,7 @@ async def auto_initiative_loop(app):
                 answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history, max_tokens=70).strip()
                 
                 char_count = len(answer)
-                typing_duration = max(2.0, min(char_count * 0.1, 4.0))
+                typing_duration = max(3.0, min(char_count * 0.12, 5.0))
 
                 if business_conn_id:
                     await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=business_conn_id)
@@ -344,44 +380,30 @@ async def handle_business_connection(update: Update, context: ContextTypes.DEFAU
     if update.business_connection:
         print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
 
-async def main():
-    # Отключаем встроенный updater, чтобы он не конфликтовал с вебхуком
-    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).updater(None).build()
+async def handle_ping(request):
+    return web.Response(text="Bot is live!")
 
-    app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
-    app.add_handler(TypeHandler(Update, handle_business), group=-1)
-
-    await app.initialize()
-    await app.start()
-
-    # Сбрасываем старые зависшие вебхуки и ставим актуальный
-    await app.bot.delete_webhook(drop_pending_updates=True)
-    webhook_url = f"{RENDER_EXTERNAL_URL.rstrip('/')}/webhook"
-    await app.bot.set_webhook(url=webhook_url)
-    print(f"🌐 Вебхук успешно установлен: {webhook_url}")
-
-    asyncio.create_task(auto_initiative_loop(app))
-
-    # Поднимаем aiohttp сервер для приема вебхуков от Telegram и пингов от Render
-    web_app = web.Application()
-
-    async def webhook_handler(request):
-        data = await request.json()
-        update = Update.de_json(data, app.bot)
-        await app.process_update(update)
-        return web.Response(text="OK")
-
-    async def ping_handler(request):
-        return web.Response(text="Bot is live via Webhook!")
-
-    web_app.router.add_post("/webhook", webhook_handler)
-    web_app.router.add_get("/", ping_handler)
-
-    runner = web.AppRunner(web_app)
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get("/", handle_ping)
+    runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
 
+async def main():
+    await start_web_server()
+    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+
+    app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
+    app.add_handler(TypeHandler(Update, handle_business), group=-1)
+
+    asyncio.create_task(auto_initiative_loop(app))
+
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    
     stop_event = asyncio.Event()
     await stop_event.wait()
 
