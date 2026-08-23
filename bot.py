@@ -284,10 +284,10 @@ async def auto_initiative_loop(app):
                     if len(parts) > 1 and i < len(parts) - 1:
                         await asyncio.sleep(random.uniform(5.0, 9.0))
 
-                if chat_id not in CHAT_HISTORY:
-                    CHAT_HISTORY[chat_id] = []
-         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
-                LAST_DIALOG_INFO["last_activity"] = get_msk_now()
+             if chat_id not in CHAT_HISTORY:
+                 CHAT_HISTORY[chat_id] = []
+             CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
+             LAST_DIALOG_INFO["last_activity"] = get_msk_now()
             except Exception as e:
                 print("❌ Ошибка авто-инициативы:", e)
 
