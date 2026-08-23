@@ -141,8 +141,16 @@ def split_into_messages(text: str) -> list:
     return sentences[:2]
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    # Увеличили паузу до 12-18 секунд, чтобы ты успевала дописать всё, что хочешь
+    # Стабильная пауза от 12 до 18 секунд, чтобы ты успевала дописывать
     delay_seconds = random.uniform(12.0, 18.0)
+    
+    # Включаем «печатает...» пока ждем или в процессе мышления
+    await context.bot.send_chat_action(
+        chat_id=chat_id, 
+        action="typing", 
+        business_connection_id=business_connection_id
+    )
+
     await asyncio.sleep(delay_seconds)
 
     data = PENDING_MESSAGES.pop(chat_id, {})
@@ -154,7 +162,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     if not messages:
         return
 
-    # Объединяем твои сообщения в один связный контекст, чтобы он видел всю мысль целиком
     combined_text = "\n".join(messages)
 
     if chat_id not in CHAT_HISTORY:
@@ -177,8 +184,9 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            typing_duration = max(1.5, min(char_count * 0.08, 3.0))
+            typing_duration = max(2.0, min(char_count * 0.09, 4.0))
 
+            # Показываем статус печати перед каждой частью сообщения
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
                 action="typing", 
@@ -194,7 +202,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             )
 
             if idx < len(parts) - 1:
-                await asyncio.sleep(random.uniform(1.0, 2.0))
+                await asyncio.sleep(random.uniform(1.2, 2.5))
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
@@ -245,7 +253,6 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if chat_id in PENDING_TASKS:
         PENDING_TASKS[chat_id].cancel()
 
-    # Сбрасываем таймер ожидания при каждом новом отправленном тобой сообщении
     PENDING_TASKS[chat_id] = asyncio.create_task(
         process_delayed_reply(chat_id, msg.business_connection_id, context)
     )
