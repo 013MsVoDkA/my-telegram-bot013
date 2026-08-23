@@ -67,14 +67,6 @@ LAST_DIALOG_INFO = {
 
 MY_ADMIN_CHAT_ID = 1257683623
 
-# Статус занятости Фила
-FIL_STATUS = {
-    "is_busy": False,
-    "busy_until": None,
-    "busy_reason": "",
-    "busy_start_time": None
-}
-
 # Список стикеров (сюда можно вставить file_id стикеров)
 FIL_STICKERS = [
     "CAACAgIAAxkBAAEt7slqiwhqxhmc7FUsY-EQsXkVtmevgQACPiIAAlVnMEl8llJpuz-g9z0E",
@@ -191,27 +183,9 @@ def split_into_messages(text: str) -> list:
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     try:
-        now = get_msk_now()
-
-        if FIL_STATUS["is_busy"]:
-            if FIL_STATUS["busy_start_time"] and (now - FIL_STATUS["busy_start_time"]).total_seconds() > 2400:
-                FIL_STATUS["is_busy"] = False
-                FIL_STATUS["busy_until"] = None
-                FIL_STATUS["busy_start_time"] = None
-
-        if FIL_STATUS["is_busy"]:
-            if FIL_STATUS["busy_until"] and now < FIL_STATUS["busy_until"]:
-                delay_seconds = random.uniform(300.0, 900.0)
-            else:
-                FIL_STATUS["is_busy"] = False
-                FIL_STATUS["busy_until"] = None
-                FIL_STATUS["busy_start_time"] = None
-                delay_seconds = random.uniform(6.0, 8.0)
-        else:
-            delay_seconds = random.uniform(6.0, 8.0)
-        
-        silence_time = max(0.5, delay_seconds - 3.0)
-        await asyncio.sleep(silence_time)
+        # Никаких долгих пауз и статусов занятости — отвечаем сразу по стандартной небольшой задержке
+        delay_seconds = random.uniform(3.0, 5.0)
+        await asyncio.sleep(delay_seconds)
 
         data = PENDING_MESSAGES.pop(chat_id, {})
         PENDING_TASKS.pop(chat_id, None)
@@ -238,21 +212,11 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             max_tok = 70
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
-        
-        lower_ans = answer.lower()
-        busy_keywords = ["магазин", "магаз", "дела", "работу", "отойду", "вернусь", "занят", "поем", "машине", "баре"]
-        if any(word in lower_ans for word in busy_keywords) and not FIL_STATUS["is_busy"]:
-            FIL_STATUS["is_busy"] = True
-            min_away = random.randint(20, 50)
-            FIL_STATUS["busy_until"] = get_msk_now() + timedelta(minutes=min_away)
-            FIL_STATUS["busy_start_time"] = get_msk_now()
-            FIL_STATUS["busy_reason"] = answer
-
         parts = split_into_messages(answer)
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            typing_duration = max(3.0, min(char_count * 0.15, 6.0))
+            typing_duration = max(2.0, min(char_count * 0.1, 4.0))
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -269,7 +233,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             )
 
             if idx < len(parts) - 1:
-                await asyncio.sleep(random.uniform(4.0, 7.0))
+                await asyncio.sleep(random.uniform(2.0, 4.0))
 
         warm_words = ["люблю", "скуч", "не грусти", "малыш", "зай", "рядом", "обнял"]
         should_send_sticker = any(word in answer.lower() for word in warm_words)
@@ -277,7 +241,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         if FIL_STICKERS and should_send_sticker and random.random() < 0.20:
             try:
                 chosen_sticker = random.choice(FIL_STICKERS)
-                await asyncio.sleep(random.uniform(2.5, 4.0))
+                await asyncio.sleep(random.uniform(1.5, 3.0))
                 await context.bot.send_sticker(
                     chat_id=chat_id,
                     sticker=chosen_sticker,
@@ -358,7 +322,7 @@ async def auto_initiative_loop(app):
                 answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history, max_tokens=70).strip()
                 
                 char_count = len(answer)
-                typing_duration = max(3.0, min(char_count * 0.12, 5.0))
+                typing_duration = max(2.0, min(char_count * 0.1, 4.0))
 
                 if business_conn_id:
                     await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=business_conn_id)
