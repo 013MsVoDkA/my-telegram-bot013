@@ -257,17 +257,22 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
         process_delayed_reply(chat_id, msg.business_connection_id, context)
     )
 
-async def auto_initiative_loop(app):
+  async def auto_initiative_loop(app):
     await asyncio.sleep(20)
     while True:
+        # Проверяем каждые 3 минуты
         await asyncio.sleep(180)
-        chat_id = LAST_DIALOG_INFO["chat_id"]
+        
+        chat_id = LAST_DIALOG_INFO["chat_id"] or TARGET_LOVE_CHAT_ID
         business_conn_id = LAST_DIALOG_INFO["business_connection_id"]
         last_activity = LAST_DIALOG_INFO["last_activity"]
 
-        if not chat_id or not business_conn_id or not last_activity:
+        # Если активности вообще не было (например, бот только перезапустился), 
+        # то считаем время от текущего момента или берем дефолт
+        if not last_activity:
             continue
 
+        # Проверяем, прошло ли 40 минут с последнего сообщения
         if (get_msk_now() - last_activity).total_seconds() / 60.0 >= 40.0:
             try:
                 history = CHAT_HISTORY.get(chat_id, [])
@@ -276,10 +281,14 @@ async def auto_initiative_loop(app):
                 char_count = len(answer)
                 typing_duration = max(3.0, min(char_count * 0.12, 5.0))
 
-                await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=business_conn_id)
-                await asyncio.sleep(typing_duration)
-                
-                await app.bot.send_message(chat_id=chat_id, text=answer, business_connection_id=business_conn_id)
+                if business_conn_id:
+                    await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=business_conn_id)
+                    await asyncio.sleep(typing_duration)
+                    await app.bot.send_message(chat_id=chat_id, text=answer, business_connection_id=business_conn_id)
+                else:
+                    # Если business_connection_id потерялся после перезагрузки Render, 
+                    # отправляем обычным сообщением в личку (или через бизнес, если он подтянется)
+                    await app.bot.send_message(chat_id=chat_id, text=answer)
 
                 if chat_id not in CHAT_HISTORY:
                     CHAT_HISTORY[chat_id] = []
