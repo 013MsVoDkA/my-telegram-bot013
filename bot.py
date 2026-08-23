@@ -318,7 +318,7 @@ async def main():
 
     await app.initialize()
     await app.start()
-    app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
     
     stop_event = asyncio.Event()
     await stop_event.wait()
