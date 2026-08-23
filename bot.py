@@ -25,7 +25,6 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
-# Вставь сюда цифры, которые ты узнал (вместо нулей, обязательно без кавычек, просто число):
 TARGET_LOVE_CHAT_ID = 1257683623
 
 MSK_TZ = timezone(timedelta(hours=3))
@@ -48,7 +47,7 @@ LAST_DIALOG_INFO = {
     "last_activity": None
 }
 
-MY_ADMIN_CHAT_ID = 0  # Твой ID зафиксируется автоматически
+MY_ADMIN_CHAT_ID = 0
 
 # ============================================================
 # 🧠 ПРОМПТЫ ФИЛА
@@ -59,9 +58,9 @@ FIL_LOVE_PROMPT = """
 ВАЖНО: Вы общаетесь с девушкой НА РАССТОЯНИИ (в интернете). Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
 ПРАВИЛА ОБЩЕНИЯ С ЛЮБИМОЙ ДЕВУШКОЙ:
 1. Говори о себе ТОЛЬКО в мужском роде ("я устал", "я сделал").
-2. Никаких обид на маты, шутки или подколы. Ты уверенный в себе парень, можешь ответить с юмором или иронией, но не душни моралью («не опускайся до оскорблений» — запрещено!).
+2. Никаких обид на маты, шутки или подколы. Ты уверенный в себе парень, можешь ответить с юмором или иронией, но не душни моралью.
 3. Отвечай максимально коротко и по делу (1-2 предложения максимум).
-4. На стикеры и медиа реагируй по-человечески (смайликом, шуткой или короткой фразой), а не системными фразами вроде «уточни».
+4. На стикеры и медиа реагируй по-человечески (смайликом, шуткой или короткой фразой).
 5. Используй ласковые слова («малышка», «любимая»), но редко.
 6. СТРОГО НИКАКИХ смайликов и эмодзи в тексте сообщений.
 """
@@ -70,7 +69,7 @@ FIL_DEFAULT_PROMPT = """
 Ты — Филипп (Фил, 22 года), парень. Ты программист и владелец собственной IT-компании. 
 СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
 1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде.
-2. Отвечай ОЧЕНЬ коротко, емко и по делу (1-2 короткие фразы максимум). Никаких длинных лекций, советов, рецептов или рассуждений.
+2. Отвечай ОЧЕНЬ коротко, емко и по делу (1-2 короткие фразы максимум). 
 3. Дружелюбно, с юмором, компанейски, но сдержанно. 
 4. Ты серьезный, уверенный в себе мужчина со стержнем. Никаких соплей. 
 5. НЕ используй ласковые слова («малышка», «милая», «дорогая»).
@@ -129,11 +128,9 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
-    # Отключаем дробление на части — пусть отправляет один цельный ответ
     return [text.replace('\n', ' ').strip()]
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    # Увеличиваем время ожидания до 8-14 секунд, чтобы ты успела дописать всю мысль целиком
     delay_seconds = random.uniform(8.0, 14.0)
     await asyncio.sleep(delay_seconds)
 
@@ -146,7 +143,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     if not messages:
         return
 
-    # Объединяем всё, что ты написала за это время, в один контекст
     combined_text = "\n".join(messages)
 
     if chat_id not in CHAT_HISTORY:
@@ -165,7 +161,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
         
-        # Считаем длину для реалистичного набора текста
         char_count = len(answer)
         typing_duration = max(3.0, min(char_count * 0.12, 6.0))
 
@@ -176,7 +171,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         )
         await asyncio.sleep(typing_duration)
 
-        # Отправляем одним нормальным сообщением с ответом на твое последнее сообщение
         await context.bot.send_message(
             chat_id=chat_id,
             text=answer,
@@ -253,19 +247,13 @@ async def auto_initiative_loop(app):
                 history = CHAT_HISTORY.get(chat_id, [])
                 answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history, max_tokens=80).strip()
                 
-                parts = split_into_messages(answer)
+                char_count = len(answer)
+                typing_duration = max(3.0, min(char_count * 0.12, 6.0))
 
-                for i, part in enumerate(parts):
-                    char_count = len(part)
-                    typing_duration = max(3.0, min(char_count * 0.15, 6.0))
-
-                    await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=business_conn_id)
-                    await asyncio.sleep(typing_duration)
-                    
-                    await app.bot.send_message(chat_id=chat_id, text=part, business_connection_id=business_conn_id)
-                    
-                    if len(parts) > 1 and i < len(parts) - 1:
-                        await asyncio.sleep(random.uniform(5.0, 9.0))
+                await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=business_conn_id)
+                await asyncio.sleep(typing_duration)
+                
+                await app.bot.send_message(chat_id=chat_id, text=answer, business_connection_id=business_conn_id)
 
                 if chat_id not in CHAT_HISTORY:
                     CHAT_HISTORY[chat_id] = []
@@ -290,7 +278,7 @@ async def start_web_server():
     await site.start()
 
 async def main():
-    CHAT_HISTORY.clear()  # Сбрасываем всю старую память при перезапуске, чтобы не тупил
+    CHAT_HISTORY.clear()
     await start_web_server()
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
@@ -301,7 +289,7 @@ async def main():
 
     await app.initialize()
     await app.start()
-  await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
     
     stop_event = asyncio.Event()
     await stop_event.wait()
