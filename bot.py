@@ -67,10 +67,10 @@ FIL_DEFAULT_PROMPT = """
 Твоя жизнь: постоянный код, сервера, дедлайны, проекты, иногда засиживаешься до утра, пьешь много кофе.
 СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
 1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде.
-2. Дружелюбно, с юмором, компанейски. 
-3. Ты серьезный, уверенный в себе мужчина со стержнем. Никаких соплей, нытья и поэзии. 
-4. Умеешь проявить внимание и заботу по-мужски (надежно, коротко, по делу).
-5. НЕ используй легкие ласковые слова ("зай", "малышка", "милая").
+2. Отвечай ОЧЕНЬ коротко, емко и по делу. Никаких длинных лекций, советов, рецептов или рассуждений на полстраницы. Пара коротких фраз максимум.
+3. Дружелюбно, с юмором, компанейски, но сдержанно. 
+4. Ты серьезный, уверенный в себе мужчина со стержнем. Никаких соплей и нытья. 
+5. НЕ используй ласковые слова ("малышка", "милая", "дорогая").
 6. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
 """
 
@@ -81,7 +81,7 @@ FIL_AUTO_INITIATIVE_PROMPT = """
 Без эмодзи.
 """
 
-def ask_ai(system_prompt: str, messages_history: list) -> str:
+def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 150) -> str:
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -94,7 +94,7 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
         "temperature": 0.5,
-        "max_tokens": 150,
+        "max_tokens": max_tokens,
     }
 
     response = requests.post(url, json=payload, headers=headers, timeout=20)
@@ -126,18 +126,22 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
-    """Режет текст строго максимум на 2 осмысленные части, чтобы не было спама"""
+    """Усиленный сплиттер: режет по точкам или запятым, разделяя мысль на 2 части"""
     clean_text = text.replace('\n', ' ').strip()
+    
     sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
     
-    if len(sentences) <= 1:
-        return [clean_text]
+    if len(sentences) >= 2:
+        first_part = " ".join(sentences[:-1])
+        second_part = sentences[-1]
+        return [first_part, second_part]
     
-    # Делим ровно на 2 куска: всё основное и последняя фраза-добавка
-    first_part = " ".join(sentences[:-1])
-    second_part = sentences[-1]
-    
-    return [first_part, second_part]
+    if ',' in clean_text:
+        parts = clean_text.rsplit(',', 1)
+        if len(parts[0]) > 10 and len(parts[1]) > 5:
+            return [parts[0].strip() + '.', parts[1].strip()]
+
+    return [clean_text]
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     delay_seconds = random.uniform(5.0, 10.0)
@@ -163,16 +167,18 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     try:
         if chat_id == MY_ADMIN_CHAT_ID:
             current_prompt = FIL_LOVE_PROMPT
+            max_tok = 150  # Для тебя оставляем как есть
         else:
             current_prompt = FIL_DEFAULT_PROMPT
+            max_tok = 60   # Для остальных ставим жесткий лимит, чтобы не писал полотна
 
-        answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id]).strip()
+        answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
         
         parts = split_into_messages(answer)
 
         for i, part in enumerate(parts):
             char_count = len(part)
-            typing_duration = max(3.0, min(char_count * 0.08, 6.0))
+            typing_duration = max(4.0, min(char_count * 0.15, 7.0))
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -190,7 +196,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 reply_to_message_id=reply_id
             )
             
-            # Человеческая пауза между сообщениями (от 5 до 9 секунд)
             if len(parts) > 1 and i < len(parts) - 1:
                 await asyncio.sleep(random.uniform(5.0, 9.0))
 
@@ -261,11 +266,16 @@ async def auto_initiative_loop(app):
                 parts = split_into_messages(answer)
 
                 for i, part in enumerate(parts):
+                    char_count = len(part)
+                    typing_duration = max(3.0, min(char_count * 0.15, 6.0))
+
                     await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=business_conn_id)
-                    await asyncio.sleep(2.0)
+                    await asyncio.sleep(typing_duration)
+                    
                     await app.bot.send_message(chat_id=chat_id, text=part, business_connection_id=business_conn_id)
+                    
                     if len(parts) > 1 and i < len(parts) - 1:
-                        await asyncio.sleep(5.0)
+                        await asyncio.sleep(random.uniform(5.0, 9.0))
 
                 if chat_id not in CHAT_HISTORY:
                     CHAT_HISTORY[chat_id] = []
@@ -278,7 +288,7 @@ async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
     try:
-        answer = ask_ai(FIL_DEFAULT_PROMPT, [{"role": "user", "content": update.message.text}])
+        answer = ask_ai(FIL_DEFAULT_PROMPT, [{"role": "user", "content": update.message.text}], max_tokens=60)
         await update.message.reply_text(answer)
     except Exception as e:
         print("\n❌ ОШИБКА DIRECT:", repr(e))
