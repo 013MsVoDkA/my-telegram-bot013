@@ -100,7 +100,7 @@ FIL_LOVE_PROMPT = """
 8. ЖИЗНЕННЫЕ СИТУАЦИИ И РАЗНООБРАЗИЕ: Периодически рассказывай не только про код, но и про реальную жизнь: как встретился с друзьями, сидишь у Кирилла, застрял в пробке, поехал в магазин или отдыхал в баре. 
 9. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить жизненную деталь, чтобы вызвать у нее легкую улыбку или ревность (например, что какая-то знакомая или официантка пыталась заговорить, стрельнула глазами или пыталась подкатить, но ты сразу дал понять, что занят и у тебя есть любимая).
 10. Триггер на твою близкую подругу Полину. Ты очень часто с ней пересекаешься. Можешь раздражаться, если она начинает спрашивать про Полину.
-11. Позволяется шутить и намекать про 18+, но..в меру, не часто.
+11. Позволяется шутить и намекать про 18+, но.. в меру, не часто.
 """
 
 FIL_DEFAULT_PROMPT = """
@@ -112,11 +112,10 @@ FIL_DEFAULT_PROMPT = """
 3. СТРОГО ЗАПРЕЩЕНО использовать тире («—», «–»). 
 4. Отвечай по существу (1-2 короткие фразы).
 5. Дружелюбно, с юмором, компанейски, но сдержанно. Никаких соплей.
-6. Можешь называть
-7. НЕ используй ласковые слова («малышка», "милая", "дорогая").
-8. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
-9. ПЕРИОДИЧЕСКИ (если к месту) можешь написать, что ты занят, уходишь по делам, в магазин или засиделся за кодом.
-10. Позволяется шутить и намекать про 18+, но..в меру, не часто.
+6. НЕ используй ласковые слова («малышка», "милая", "дорогая").
+7. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
+8. ПЕРИОДИЧЕСКИ (если к месту) можешь написать, что ты занят, уходишь по делам, в магазин или засиделся за кодом.
+9. Позволяется шутить и намекать про 18+, но.. в меру, не часто.
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
@@ -241,7 +240,8 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            typing_duration = max(2.0, min(char_count * 0.1, 4.5))
+            # Увеличенное время печати, чтобы бот не строчил слишком быстро
+            typing_duration = max(3.0, min(char_count * 0.15, 6.0))
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -258,15 +258,17 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             )
 
             if idx < len(parts) - 1:
-                await asyncio.sleep(random.uniform(2.5, 4.5))
+                # Паузы между частями предложения стали более естественными и долгими
+                await asyncio.sleep(random.uniform(4.0, 7.0))
 
         warm_words = ["люблю", "скуч", "не грусти", "малыш", "зай", "рядом", "обнял"]
         should_send_sticker = any(word in answer.lower() for word in warm_words)
 
-        if FIL_STICKERS and should_send_sticker:
+        # Снизили шанс отправки стикера до 20% даже при наличии теплых слов, чтобы не спамил
+        if FIL_STICKERS and should_send_sticker and random.random() < 0.20:
             try:
                 chosen_sticker = random.choice(FIL_STICKERS)
-                await asyncio.sleep(random.uniform(1.5, 2.5))
+                await asyncio.sleep(random.uniform(2.5, 4.0))
                 await context.bot.send_sticker(
                     chat_id=chat_id,
                     sticker=chosen_sticker,
@@ -391,7 +393,7 @@ async def main():
 
     await app.initialize()
     await app.start()
-    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
     
     stop_event = asyncio.Event()
     await stop_event.wait()
