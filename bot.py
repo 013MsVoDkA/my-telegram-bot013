@@ -302,6 +302,9 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = msg.chat.id
     user_text = msg.text
 
+    # ПЕЧАТАЕМ В КОНСОЛЬ ВСЁ, ЧТО ПРИШЛО ОТ ТЕБЯ
+    print(f"\n📩 ПОЛУЧЕНО СООБЩЕНИЕ! Chat ID: {chat_id}, Текст: {user_text}")
+
     if not user_text:
         if msg.voice or msg.video_note:
             file_obj = msg.voice if msg.voice else msg.video_note
