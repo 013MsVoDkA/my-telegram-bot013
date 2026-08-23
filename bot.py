@@ -24,7 +24,7 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
-# Твой публичный URL на Render (обязательно укажи в переменных среды на Render или вставь сюда)
+# Твой публичный URL на Render
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://my-telegram-bot01322.onrender.com")
 
 TARGET_LOVE_CHAT_ID = 1257683623
@@ -379,7 +379,6 @@ async def handle_business_connection(update: Update, context: ContextTypes.DEFAU
 async def handle_ping(request):
     return web.Response(text="Bot is live!")
 
-# Автопинг, чтобы Render не усыплял бесплатный инстанс
 async def self_ping_loop():
     await asyncio.sleep(30)
     url = f"{RENDER_EXTERNAL_URL.rstrip('/')}/"
@@ -389,7 +388,7 @@ async def self_ping_loop():
                 await client.get(url)
         except Exception:
             pass
-        await asyncio.sleep(300)   каждые 5 минут пингуем сами себя
+        await asyncio.sleep(300)
 
 async def start_web_server():
     app = web.Application()
@@ -410,9 +409,9 @@ async def main():
 
     asyncio.create_task(auto_initiative_loop(app))
 
-    await app.initialize()
-    await app.start()
+    # Корректный запуск поллинга без вебхук-ошибок
     await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    await app.start()
     
     stop_event = asyncio.Event()
     await stop_event.wait()
