@@ -138,7 +138,7 @@ def split_into_messages(text: str) -> list:
     if not sentences:
         return [clean_text]
         
-    return sentences[:2]
+    return sentences[:3]
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     # Стабильная пауза от 12 до 18 секунд, чтобы ты успевала дописывать
