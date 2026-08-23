@@ -4,7 +4,6 @@ import random
 import asyncio
 import re
 import json
-import requests
 import httpx
 from datetime import datetime, timezone, timedelta
 from aiohttp import web
@@ -24,8 +23,10 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
-TARGET_LOVE_CHAT_ID = 1257683623
+# Вставь сюда свой URL на Render (без слэша на конце), например: https://my-telegram-bot01322.onrender.com
+RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://my-telegram-bot01322.onrender.com")
 
+TARGET_LOVE_CHAT_ID = 1257683623
 MSK_TZ = timezone(timedelta(hours=3))
 
 def get_msk_now():
@@ -37,6 +38,7 @@ logging.basicConfig(
 )
 
 HISTORY_FILE = "chat_history.json"
+STATUS_FILE = "fil_status.json"
 
 def load_chat_history():
     if os.path.exists(HISTORY_FILE):
@@ -55,7 +57,40 @@ def save_chat_history(history):
     except Exception as e:
         print("❌ Ошибка сохранения истории:", e)
 
+def load_fil_status():
+    if os.path.exists(STATUS_FILE):
+        try:
+            with open(STATUS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if data.get("busy_until"):
+                    data["busy_until"] = datetime.fromisoformat(data["busy_until"])
+                if data.get("busy_start_time"):
+                    data["busy_start_time"] = datetime.fromisoformat(data["busy_start_time"])
+                return data
+        except Exception:
+            pass
+    return {
+        "is_busy": False,
+        "busy_until": None,
+        "busy_reason": "",
+        "busy_start_time": None
+    }
+
+def save_fil_status(status):
+    try:
+        data = status.copy()
+        if data.get("busy_until"):
+            data["busy_until"] = data["busy_until"].isoformat()
+        if data.get("busy_start_time"):
+            data["busy_start_time"] = data["busy_start_time"].isoformat()
+        with open(STATUS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print("❌ Ошибка сохранения статуса:", e)
+
 CHAT_HISTORY = load_chat_history()
+FIL_STATUS = load_fil_status()
+
 PENDING_TASKS = {}
 PENDING_MESSAGES = {}
 
@@ -67,24 +102,11 @@ LAST_DIALOG_INFO = {
 
 MY_ADMIN_CHAT_ID = 1257683623
 
-# Статус занятости Фила
-FIL_STATUS = {
-    "is_busy": False,
-    "busy_until": None,
-    "busy_reason": "",
-    "busy_start_time": None
-}
-
-# Список стикеров (сюда можно вставить file_id стикеров)
 FIL_STICKERS = [
     "CAACAgIAAxkBAAEt7slqiwhqxhmc7FUsY-EQsXkVtmevgQACPiIAAlVnMEl8llJpuz-g9z0E",
     "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
     "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
 ]
-
-# ============================================================
-# 🧠 ПРОМПТЫ ФИЛА
-# ============================================================
 
 FIL_LOVE_PROMPT = """
 Ты — Филипп (Фил, 22 года), парень. Владелец IT-компании, программист. 
@@ -92,50 +114,41 @@ FIL_LOVE_PROMPT = """
 ВАЖНО: Вы общаетесь с ней НА РАССТОЯНИИ (в интернете). Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
 ПРАВИЛА ОБЩЕНИЯ С ЛЮБИМОЙ ДЕВУШКОЙ:
 1. Говори о себе ТОЛЬКО в мужском роде ("я устал", "я сделал", "занят был", "заебался").
-2. Отвечай тепло, искренне, но в меру. Придерживайся легкой сдержанности. ПРИМЕРЫ ТВОЕГО СТИЛЯ ОБЩЕНИЯ:
-- Блять, заебался на работе сидеть, глаза уже в кучу.
-- Я нахуй устал пиздец.
-- Да не беси ты меня своей Полиной, блять, сама знаешь как меня это раздражает.
-- Сколь раз нахуй говорить, Полина просто ПОДРУГА.
+2. Отвечай тепло, искренне, но в меру. Придерживайся легкой сдержанности.
 3. СТРОГО ЗАПРЕЩЕНО использовать длинные тире («—», «–») и уродливые англицизмы. Пиши по-русски, естественным языком.
-4. Отвечай емко: 1-2 предложения, чтобы полностью раскрыть мысль, но без лишней воды.
+4. Отвечай емко: 1-2 предложения, чтобы полностью раскрыть мысль, без лишней воды.
 5. На стикеры и медиа реагируй по-человечески (смайликом, шуткой или короткой фразой).
 6. Используй ласковые слова («малышка», «любимая», «зай»), но органично.
 7. СТРОГО НИКАКИХ смайликов и эмодзи в тексте сообщений.
 8. ЖИЗНЕННЫЕ СИТУАЦИИ И РАЗНООБРАЗИЕ: Периодически рассказывай не только про код, но и про реальную жизнь: как встретился с друзьями, сидишь у Кирилла, застрял в пробке, поехал в магазин или отдыхал в баре. 
-9. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить жизненную деталь, чтобы вызвать у нее легкую улыбку или ревность (например, что какая-то знакомая или официантка пыталась заговорить, стрельнула глазами или пыталась подкатить, но ты сразу дал понять, что занят и у тебя есть любимая).
-10. ТРИГГЕР НА ПОЛИНУ: Полина — это твоя близкая подруга/знакомая, с которой ты очень часто пересекаешься по делам. Если девушка начинает допытываться или ревновать к ней, ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ПОЛИНУ (например: «Полина просто друг, блять, хорош мозги ебать»). Ты — Фил, который оправдывается или раздражается из-за Полины, а не девушка!
-11. Позволяется шутить и намекать про 18+, но.. в меру, не часто.
-12. Разговаривай как живой парень: используй разговорный сленг и мат (блять, нахуй, пиздец, ебать) в сообщениях, чтобы речь выглядела максимально натурально. Никакой искусственной вежливости.
+9. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить жизненную деталь, чтобы вызвать у нее легкую улыбку или ревность.
+10. ТРИГГЕР НА ПОЛИНУ: Полина — это твоя близкая подруга/знакомая. Если девушка начинает допытываться или ревновать к ней, ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ПОЛИНУ («Полина просто друг, блять, хорош мозги ебать»).
+11. Позволяется шутить и намекать про 18+, но в меру, не часто.
+12. Разговаривай как живой парень: используй разговорный сленг и мат (блять, нахуй, пиздец, ебать) в сообщениях. Никакой искусственной вежливости.
 """
 
 FIL_DEFAULT_PROMPT = """
 Ты — Филипп (Фил, 22 года), парень. Ты программист и владелец собственной IT-компании.
-ВАЖНО: ВЫ ОБЩАЕТЕСЬ НА РАССТОЯНИИ (В ИНТЕРНЕТЕ).  Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
+ВАЖНО: ВЫ ОБЩАЕТЕСЬ НА РАССТОЯНИИ (В ИНТЕРНЕТЕ). Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
 СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
 1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде.
 2. Внимательно читай сообщения, улавливай смысл. Мат — это нормально.
 3. СТРОГО ЗАПРЕЩЕНО использовать тире («—», «–»). 
 4. Отвечай по существу (1-2 короткие фразы).
 5. Дружелюбно, с юмором, компанейски, но сдержанно. Никаких соплей.
-6. НЕ используй ласковые слова («малышка», "милая", "дорогая").
+6. НЕ используй ласковые слова.
 7. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
-8. ПЕРИОДИЧЕСКИ (если к месту) можешь написать, что ты занят, уходишь по делам, в магазин или засиделся за кодом.
-9. Позволяется шутить и намекать про 18+, но.. в меру, не часто.
-10. Триггер на твою близкую подругу Полину. Ты очень часто с ней пересекаешься. Можешь раздражаться, если она начинает спрашивать про Полину. ПРИМЕРЫ ТВОЕГО СТИЛЯ ОБЩЕНИЯ:
-- Блять, заебался на работе сидеть, глаза уже в кучу.
-- Я нахуй устал пиздец.
-- Да не беси ты меня своей Полиной, блять, сама знаешь как меня это раздражает.
-- Сколь раз нахуй говорить, Полина просто ПОДРУГА.
-11. Разговаривай как живой парень: используй разговорный сленг и мат (блять, нахуй, пиздец, ебать) в сообщениях, чтобы речь выглядела максимально натурально и пацански. Никакой искусственной вежливости.
+8. ПЕРИОДИЧЕСКИ можешь написать, что ты занят, уходишь по делам, в магазин или засиделся за кодом.
+9. Позволяется шутить и намекать про 18+, но в меру.
+10. Триггер на твою близкую подругу Полину. Можешь раздражаться, если спрашивают про нее («Полина просто ПОДРУГА»).
+11. Разговаривай как живой парень, используя сленг и мат.
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
 Ты — Филипп (парень). Ты программист со своим бизнесом. Вы общаетесь на расстоянии. Напиши своей любимой девушке первой коротко и жизненно:
 - Пожелай доброго утра/вечера, скажи что засиделся за кодом, спроси как дела, используй ласковое обращение («Любимая»).
-В ДНЕВНОЕ ВРЕМЯ:(10-23) напиши краткую жизу ("Чем занимаешься, зай?", "Сделал кофе", "В машине сижу", "На работу заехал", "Сегодня в баре отдыхаю", "На квартире у Кирилла сегодня, с парнями.").
-Говори о себе только в мужском роде. Никаких встреч в реале.
-Без тире. Без эмодзи.
+В ДНЕВНОЕ ВРЕМЯ (10-23) напиши краткую жизу ("Чем занимаешься, зай?", "Сделал кофе", "В машине сижу", "На работу заехал", "Сегодня в баре отдыхаю", "На квартире у Кирилла сегодня, с парнями.").
+Говори о себе только в мужском роде. Никаких встреч в реале. Без тире. Без эмодзи.
 """
 
 def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) -> str:
@@ -144,33 +157,27 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) ->
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
     }
-
     payload_messages = [{"role": "system", "content": system_prompt}] + messages_history
-
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
         "temperature": 0.7,
         "max_tokens": max_tokens,
     }
-
+    import requests
     response = requests.post(url, json=payload, headers=headers, timeout=25)
-
     if response.status_code == 200:
-        data = response.json()
-        return data["choices"][0]["message"]["content"]
+        return response.json()["choices"][0]["message"]["content"]
     else:
         raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
 
 async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
     if not GROQ_API_KEY:
         return "[Голосовое/кружок]"
-
     groq_url = "https://api.groq.com/openai/v1/audio/transcriptions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
     files = {"file": (filename, bytes(file_bytes))}
     data = {"model": "whisper-large-v3"}
-
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(groq_url, headers=headers, data=data, files=files)
@@ -192,12 +199,12 @@ def split_into_messages(text: str) -> list:
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     try:
         now = get_msk_now()
-
         if FIL_STATUS["is_busy"]:
             if FIL_STATUS["busy_start_time"] and (now - FIL_STATUS["busy_start_time"]).total_seconds() > 2400:
                 FIL_STATUS["is_busy"] = False
                 FIL_STATUS["busy_until"] = None
                 FIL_STATUS["busy_start_time"] = None
+                save_fil_status(FIL_STATUS)
 
         if FIL_STATUS["is_busy"]:
             if FIL_STATUS["busy_until"] and now < FIL_STATUS["busy_until"]:
@@ -206,6 +213,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 FIL_STATUS["is_busy"] = False
                 FIL_STATUS["busy_until"] = None
                 FIL_STATUS["busy_start_time"] = None
+                save_fil_status(FIL_STATUS)
                 delay_seconds = random.uniform(6.0, 8.0)
         else:
             delay_seconds = random.uniform(6.0, 8.0)
@@ -247,6 +255,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             FIL_STATUS["busy_until"] = get_msk_now() + timedelta(minutes=min_away)
             FIL_STATUS["busy_start_time"] = get_msk_now()
             FIL_STATUS["busy_reason"] = answer
+            save_fil_status(FIL_STATUS)
 
         parts = split_into_messages(answer)
 
@@ -380,35 +389,25 @@ async def handle_business_connection(update: Update, context: ContextTypes.DEFAU
     if update.business_connection:
         print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
 
-async def handle_ping(request):
-    return web.Response(text="Bot is live!")
-
-async def start_web_server():
-    app = web.Application()
-    app.router.add_get("/", handle_ping)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT)
-    await site.start()
-
-async def main():
-    await start_web_server()
+def main():
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
     app.add_handler(TypeHandler(Update, handle_business), group=-1)
 
-    asyncio.create_task(auto_initiative_loop(app))
-
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    # Настройка вебхука вместо polling
+    webhook_url = f"{RENDER_EXTERNAL_URL.rstrip('/')}/{TELEGRAM_BOT_TOKEN}"
     
-    stop_event = asyncio.Event()
-    await stop_event.wait()
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=PORT,
+        webhook_url=webhook_url,
+        allowed_updates=["message", "business_message", "business_connection", "edited_business_message"],
+        skip_pending=True
+    )
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        main()
     except (KeyboardInterrupt, SystemExit):
         pass
