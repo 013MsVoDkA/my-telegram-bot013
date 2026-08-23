@@ -15,15 +15,17 @@ from telegram.ext import (
     TypeHandler,
 )
 
+# ==============================
+# 🔑 КЛЮЧИ И НАСТРОЙКИ
+# ==============================
+
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
-# Твой публичный URL на Render (замени на свой, если отличается)
-RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://my-telegram-bot01322.onrender.com")
-
 TARGET_LOVE_CHAT_ID = 1257683623
+
 MSK_TZ = timezone(timedelta(hours=3))
 
 def get_msk_now():
@@ -65,22 +67,48 @@ LAST_DIALOG_INFO = {
 
 MY_ADMIN_CHAT_ID = 1257683623
 
+# Статус занятости Фила
+FIL_STATUS = {
+    "is_busy": False,
+    "busy_until": None,
+    "busy_reason": "",
+    "busy_start_time": None
+}
+
+# Список стикеров
+FIL_STICKERS = [
+    "CAACAgIAAxkBAAEt7slqiwhqxhmc7FUsY-EQsXkVtmevgQACPiIAAlVnMEl8llJpuz-g9z0E",
+    "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
+    "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
+]
+
+# ============================================================
+# 🧠 ПРОМПТЫ ФИЛА (ИСПРАВЛЕННЫЕ РОЛИ И МАТ)
+# ============================================================
+
 FIL_LOVE_PROMPT = """
 Ты — Филипп (Фил, 22 года), парень. Владелец IT-компании, программист. 
 ТВОЯ СОБЕСЕДНИЦА — твоя любимая девушка. Ты общаешься ТОЛЬКО с ней. Ты — парень, она — девушка. Никогда не путай роли!
 ВАЖНО: Вы общаетесь с ней НА РАССТОЯНИИ (в интернете). Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
+
 ПРАВИЛА ОБЩЕНИЯ С ЛЮБИМОЙ ДЕВУШКОЙ:
 1. Говори о себе ТОЛЬКО в мужском роде ("я устал", "я сделал", "занят был", "заебался"). 
 2. Разговаривай как живой парень: используй разговорный сленг и мат (блять, нахуй, пиздец, ебать) в сообщениях, чтобы речь выглядела максимально натурально и пацански. 
-3. СТРОГО ЗАПРЕЩЕНО использовать длинные тире и уродливые англицизмы. Пиши по-русски.
+3. СТРОГО ЗАПРЕЩЕНО использовать длинные тире («—», «–») и уродливые англицизмы. Пиши по-русски.
 4. Отвечай емко: 1-2 предложения, чтобы полностью раскрыть мысль, но без лишней воды.
 5. На стикеры и медиа реагируй по-человечески (смайликом, шуткой или короткой фразой).
-6. Используй ласковые слова ("малышка", "любимая", "зай"), но органично.
+6. Используй ласковые слова («малышка», «любимая», «зай»), но органично.
 7. СТРОГО НИКАКИХ смайликов и эмодзи в тексте сообщений.
 8. ЖИЗНЕННЫЕ СИТУАЦИИ: Периодически рассказывай про реальную жизнь: как встретился с друзьями, сидишь у Кирилла, застрял в пробке, поехал в магазин или отдыхал в баре. 
 9. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить деталь, чтобы вызвать легкую ревность (например, что какая-то знакомая или официантка пыталась заговорить, но ты сразу отшил).
-10. ТРИГГЕР НА ПОЛИНУ: Полина — это твоя подруга/знакомая, с которой ты пересекаешься по делам. Если девушка начинает ревновать к ней или допытываться, ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ПОЛИНУ, говоря что она просто друг и не нужно мозги ебать. Ты — Фил, который оправдывается или злится, а не девушка!
+10. ТРИГГЕР НА ПОЛИНУ: Полина — это твоя подруга/знакомая, с которой ты пересекаешься по делам. Если девушка начинает ревновать к ней или допытываться, ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ПОЛИНУ, говоря что она просто друг и не нужно мозги ебать (например: «Полина просто друг, блять, хорош докапываться»). Ты — Фил, который оправдывается или злится, а не девушка!
 11. Позволяется шутить и намекать про 18+, но в меру.
+
+ПРИМЕРЫ ТВОЕГО СТИЛЯ (говори примерно так же):
+- Блять, заебался на работе сидеть, глаза уже в кучу нахуй.
+- Че делаешь, зай? Я пиздец устал сегодня.
+- Да не беси ты меня своей Полиной, ебать, сама же знаешь как меня это бесит.
+- Сколь раз нахуй говорить, Полина просто подруга, хорош пиздеть.
 """
 
 FIL_DEFAULT_PROMPT = """
@@ -89,16 +117,21 @@ FIL_DEFAULT_PROMPT = """
 СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
 1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде.
 2. Используй нормальный пацанский сленг и мат (блять, нахуй, пиздец), общайся просто и без душноты.
-3. СТРОГО ЗАПРЕЩЕНО использовать тире. 
+3. СТРОГО ЗАПРЕЩЕНО использовать тире («—», «–»). 
 4. Отвечай по существу (1-2 короткие фразы).
 5. Дружелюбно, с юмором, компанейски, но сдержанно. Никаких соплей.
 6. НЕ используй ласковые слова.
 7. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
-8. ТРИГГЕР НА ПОЛИНУ: Полина — это твоя близкая подруга/знакомая, с которой ты очень часто пересекаешься по делам. Если девушка начинает допытываться или ревновать к ней, ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ПОЛИНУ.
+8. ПЕРИОДИЧЕСКИ можешь написать, что ты занят, уходишь по делам, в магазин или засиделся за кодом.
+9. Позволяется шутить и намекать про 18+, но в меру.
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
-Ты — Филипп (парень). Программист, свой бизнес. Вы общаетесь на расстоянии. Напиши любимой девушке первой коротко и жизненно: пожелай доброго утра/вечера, скажи что засиделся за кодом, спроси как дела. Без тире и смайликов. С матом к месту.
+Ты — Филипп (парень). Ты программист со своим бизнесом. Вы общаетесь на расстоянии. Напиши своей любимой девушке первой коротко и жизненно:
+- Пожелай доброго утра/вечера, скажи что засиделся за кодом, спроси как дела, используй ласковое обращение («Любимая»). Можешь добавить мата к месту (типа "блять", "пиздец").
+В ДНЕВНОЕ ВРЕМЯ:(10-23) напиши краткую жизу ("Чем занимаешься, зай?", "Кофе пью блять", "В машине сижу нахуй", "На работу заехал").
+Говори о себе только в мужском роде. Никаких встреч в реале.
+Без тире. Без эмодзи.
 """
 
 def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) -> str:
@@ -107,82 +140,212 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) ->
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
     }
+
     payload_messages = [{"role": "system", "content": system_prompt}] + messages_history
+
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
         "temperature": 0.7,
         "max_tokens": max_tokens,
     }
+
     response = requests.post(url, json=payload, headers=headers, timeout=25)
+
     if response.status_code == 200:
-        return response.json()["choices"][0]["message"]["content"]
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
     else:
         raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
 
 async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
     if not GROQ_API_KEY:
         return "[Голосовое/кружок]"
+
     groq_url = "https://api.groq.com/openai/v1/audio/transcriptions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
     files = {"file": (filename, bytes(file_bytes))}
     data = {"model": "whisper-large-v3"}
+
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(groq_url, headers=headers, data=data, files=files)
             if resp.status_code == 200:
-                return f"(голосовое/кружок): {resp.json().get('text', '').strip()}"
+                transcript = resp.json().get("text", "").strip()
+                return f"(голосовое/кружок): {transcript}"
+            else:
+                return "(голосовое/кружок)"
     except Exception:
-        pass
-    return "(голосовое/кружок)"
+        return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
     clean_text = text.replace('—', ' ').replace('–', ' ').replace('\n', ' ').strip()
     sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
-    return sentences[:4] if sentences else [clean_text]
+    if not sentences:
+        return [clean_text]
+    return sentences[:4]
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     try:
-        await asyncio.sleep(random.uniform(0.5, 1.0))
+        now = get_msk_now()
+
+        if FIL_STATUS["is_busy"]:
+            if FIL_STATUS["busy_start_time"] and (now - FIL_STATUS["busy_start_time"]).total_seconds() > 2400:
+                FIL_STATUS["is_busy"] = False
+                FIL_STATUS["busy_until"] = None
+                FIL_STATUS["busy_start_time"] = None
+
+        if FIL_STATUS["is_busy"]:
+            if FIL_STATUS["busy_until"] and now < FIL_STATUS["busy_until"]:
+                delay_seconds = random.uniform(300.0, 900.0)
+            else:
+                FIL_STATUS["is_busy"] = False
+                FIL_STATUS["busy_until"] = None
+                FIL_STATUS["busy_start_time"] = None
+                delay_seconds = random.uniform(6.0, 8.0)
+        else:
+            delay_seconds = random.uniform(6.0, 8.0)
+        
+        silence_time = max(0.5, delay_seconds - 3.0)
+        await asyncio.sleep(silence_time)
+
         data = PENDING_MESSAGES.pop(chat_id, {})
         PENDING_TASKS.pop(chat_id, None)
 
         messages = data.get("texts", [])
         last_msg_id = data.get("last_msg_id")
+
         if not messages:
             return
 
         combined_text = "\n".join(messages)
+
         if chat_id not in CHAT_HISTORY:
             CHAT_HISTORY[chat_id] = []
 
         CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
         CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
 
-        current_prompt = FIL_LOVE_PROMPT if chat_id == MY_ADMIN_CHAT_ID else FIL_DEFAULT_PROMPT
-        max_tok = 110 if chat_id == MY_ADMIN_CHAT_ID else 70
+        if chat_id == MY_ADMIN_CHAT_ID:
+            current_prompt = FIL_LOVE_PROMPT
+            max_tok = 110
+        else:
+            current_prompt = FIL_DEFAULT_PROMPT
+            max_tok = 70
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
+        
+        lower_ans = answer.lower()
+        busy_keywords = ["магазин", "магаз", "дела", "работу", "отойду", "вернусь", "занят", "поем", "машине", "баре"]
+        if any(word in lower_ans for word in busy_keywords) and not FIL_STATUS["is_busy"]:
+            FIL_STATUS["is_busy"] = True
+            min_away = random.randint(20, 50)
+            FIL_STATUS["busy_until"] = get_msk_now() + timedelta(minutes=min_away)
+            FIL_STATUS["busy_start_time"] = get_msk_now()
+            FIL_STATUS["busy_reason"] = answer
+
         parts = split_into_messages(answer)
 
         for idx, part in enumerate(parts):
-            await context.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=business_connection_id)
-            await asyncio.sleep(0.5)
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=part,
-                business_connection_id=business_connection_id,
-                reply_to_message_id=(last_msg_id if idx == 0 else None)
-            )
+            char_count = len(part)
+            typing_duration = max(3.0, min(char_count * 0.15, 6.0))
+
+            if business_connection_id:
+                await context.bot.send_chat_action(
+                    chat_id=chat_id,
+                    action="typing",
+                    business_connection_id=business_connection_id
+                )
+            else:
+                await context.bot.send_chat_action(
+                    chat_id=chat_id,
+                    action="typing"
+                )
+            await asyncio.sleep(typing_duration)
+
+            send_kwargs = {
+                "chat_id": chat_id,
+                "text": part,
+                "reply_to_message_id": (last_msg_id if idx == 0 else None),
+            }
+            if business_connection_id:
+                send_kwargs["business_connection_id"] = business_connection_id
+
+            await context.bot.send_message(**send_kwargs)
+
             if idx < len(parts) - 1:
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(random.uniform(4.0, 7.0))
+
+        warm_words = ["люблю", "скуч", "не грусти", "малыш", "зай", "рядом", "обнял"]
+        should_send_sticker = any(word in answer.lower() for word in warm_words)
+
+        if FIL_STICKERS and should_send_sticker and random.random() < 0.20:
+            try:
+                chosen_sticker = random.choice(FIL_STICKERS)
+                await asyncio.sleep(random.uniform(2.5, 4.0))
+                sticker_kwargs = {
+                    "chat_id": chat_id,
+                    "sticker": chosen_sticker,
+                }
+                if business_connection_id:
+                    sticker_kwargs["business_connection_id"] = business_connection_id
+
+                await context.bot.send_sticker(**sticker_kwargs)
+            except Exception as e:
+                print("❌ Ошибка отправки стикера:", e)
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
         save_chat_history(CHAT_HISTORY)
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
+
     except Exception as e:
-        print("❌ Ошибка:", repr(e))
+        print("\n❌ ОШИБКА В PROCESS_DELAYED_REPLY:", repr(e))
         PENDING_TASKS.pop(chat_id, None)
+
+
+async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обработка обычных сообщений боту (не Telegram Business)."""
+    if not update.message:
+        return
+
+    msg = update.message
+    chat_id = msg.chat.id
+    user_text = msg.text
+
+    if not user_text:
+        if msg.voice or msg.video_note:
+            file_obj = msg.voice if msg.voice else msg.video_note
+            filename = "audio.ogg" if msg.voice else "video.mp4"
+            try:
+                file = await context.bot.get_file(file_obj.file_id)
+                file_bytes = await file.download_as_bytearray()
+                user_text = await transcribe_audio(file_bytes, filename)
+            except Exception as e:
+                print("❌ Ошибка получения голосового:", repr(e))
+                user_text = "(отправила голосовое/кружок)"
+        elif msg.sticker:
+            user_text = "[Отправила стикер]"
+        else:
+            user_text = "[Медиа/Фото]"
+
+    # Для обычного бота business_connection_id не нужен.
+    LAST_DIALOG_INFO["chat_id"] = chat_id
+    LAST_DIALOG_INFO["business_connection_id"] = None
+    LAST_DIALOG_INFO["last_activity"] = get_msk_now()
+
+    if chat_id not in PENDING_MESSAGES:
+        PENDING_MESSAGES[chat_id] = {"texts": [], "last_msg_id": None}
+
+    PENDING_MESSAGES[chat_id]["texts"].append(user_text)
+    PENDING_MESSAGES[chat_id]["last_msg_id"] = msg.message_id
+
+    if chat_id in PENDING_TASKS:
+        PENDING_TASKS[chat_id].cancel()
+
+    PENDING_TASKS[chat_id] = asyncio.create_task(
+        process_delayed_reply(chat_id, None, context)
+    )
+
 
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.business_message:
@@ -194,29 +357,33 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     global MY_ADMIN_CHAT_ID
     if MY_ADMIN_CHAT_ID == 0:
-        MY_ADMIN_CHAT_ID = TARGET_LOVE_CHAT_ID if TARGET_LOVE_CHAT_ID != 0 else chat_id
+        if TARGET_LOVE_CHAT_ID != 0:
+            MY_ADMIN_CHAT_ID = TARGET_LOVE_CHAT_ID
+        else:
+            MY_ADMIN_CHAT_ID = chat_id
 
     if not user_text:
         if msg.voice or msg.video_note:
             file_obj = msg.voice if msg.voice else msg.video_note
+            filename = "audio.ogg" if msg.voice else "video.mp4"
             try:
                 file = await context.bot.get_file(file_obj.file_id)
                 file_bytes = await file.download_as_bytearray()
-                user_text = await transcribe_audio(file_bytes, "audio.ogg" if msg.voice else "video.mp4")
+                user_text = await transcribe_audio(file_bytes, filename)
             except Exception:
-                user_text = "(голосовое)"
+                user_text = "(отправила голосовое/кружок)"
         elif msg.sticker:
-            user_text = "[Стикер]"
+            user_text = "[Отправила стикер]"
         else:
-            user_text = "[Медиа]"
+            user_text = "[Медиа/Фото]"
 
     LAST_DIALOG_INFO["chat_id"] = chat_id
     LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
     LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
-    if chat_id not in PPENDING_MESSAGES if 'PPENDING_MESSAGES' in globals() else chat_id not in PENDING_MESSAGES:
+    if chat_id not in PENDING_MESSAGES:
         PENDING_MESSAGES[chat_id] = {"texts": [], "last_msg_id": None}
-
+    
     PENDING_MESSAGES[chat_id]["texts"].append(user_text)
     PENDING_MESSAGES[chat_id]["last_msg_id"] = msg.message_id
 
@@ -228,7 +395,7 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def auto_initiative_loop(app):
-    await asyncio.sleep(30)
+    await asyncio.sleep(20)
     while True:
         await asyncio.sleep(180)
         try:
@@ -236,13 +403,19 @@ async def auto_initiative_loop(app):
             business_conn_id = LAST_DIALOG_INFO["business_connection_id"]
             last_activity = LAST_DIALOG_INFO["last_activity"]
 
-            if last_activity and (get_msk_now() - last_activity).total_seconds() / 60.0 >= 40.0:
+            if not last_activity:
+                continue
+
+            if (get_msk_now() - last_activity).total_seconds() / 60.0 >= 40.0:
                 history = CHAT_HISTORY.get(chat_id, [])
                 answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history, max_tokens=70).strip()
                 
+                char_count = len(answer)
+                typing_duration = max(3.0, min(char_count * 0.12, 5.0))
+
                 if business_conn_id:
                     await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=business_conn_id)
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(typing_duration)
                     await app.bot.send_message(chat_id=chat_id, text=answer, business_connection_id=business_conn_id)
                 else:
                     await app.bot.send_message(chat_id=chat_id, text=answer)
@@ -252,45 +425,41 @@ async def auto_initiative_loop(app):
                 CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
                 save_chat_history(CHAT_HISTORY)
                 LAST_DIALOG_INFO["last_activity"] = get_msk_now()
+
         except Exception as e:
             print("❌ Ошибка авто-инициативы:", e)
 
-telegram_app = None
+async def handle_business_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.business_connection:
+        print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
 
-async def webhook_handler(request):
-    try:
-        data = await request.json()
-        update = Update.de_json(data, telegram_app.bot)
-        await telegram_app.process_update(update)
-        return web.Response(text="OK")
-    except Exception as e:
-        print("❌ Webhook error:", e)
-        return web.Response(text="Error", status=500)
+async def handle_ping(request):
+    return web.Response(text="Bot is live!")
 
-async def main():
-    global telegram_app
-    telegram_app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-    await telegram_app.initialize()
-
-    telegram_app.add_handler(TypeHandler(Update, handle_business), group=-1)
-
-    # Настраиваем вебхук в Телеграме автоматически
-    webhook_url = f"{RENDER_EXTERNAL_URL}/webhook"
-    await telegram_app.bot.set_webhook(url=webhook_url)
-    print(f"🔗 Вебхук успешно установлен на: {webhook_url}")
-
-    await telegram_app.start()
-    asyncio.create_task(auto_initiative_loop(telegram_app))
-
+async def start_web_server():
     app = web.Application()
-    app.router.add_post("/webhook", webhook_handler)
-    app.router.add_get("/", lambda req: web.Response(text="Bot is live via Webhooks!"))
-
+    app.router.add_get("/", handle_ping)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
 
+async def main():
+    await start_web_server()
+    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+
+    app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
+    app.add_handler(TypeHandler(Update, handle_normal_message), group=-1)
+    app.add_handler(TypeHandler(Update, handle_business), group=-1)
+
+    asyncio.create_task(auto_initiative_loop(app))
+
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling(
+        allowed_updates=["message", "business_message", "business_connection", "edited_business_message"]
+    )
+    
     stop_event = asyncio.Event()
     await stop_event.wait()
 
