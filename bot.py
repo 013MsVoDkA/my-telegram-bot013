@@ -24,7 +24,7 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
-# Твой домен на Render для вебхука
+# Твой домен на Render для вебхука (подставь свой или бери из переменных окружения)
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://my-telegram-bot01322.onrender.com")
 
 TARGET_LOVE_CHAT_ID = 1257683623
@@ -70,6 +70,7 @@ LAST_DIALOG_INFO = {
 
 MY_ADMIN_CHAT_ID = 1257683623
 
+# Список стикеров
 FIL_STICKERS = [
     "CAACAgIAAxkBAAEt7slqiwhqxhmc7FUsY-EQsXkVtmevgQACPiIAAlVnMEl8llJpuz-g9z0E",
     "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
@@ -105,7 +106,7 @@ FIL_LOVE_PROMPT = """
 
 FIL_DEFAULT_PROMPT = """
 Ты — Филипп (Фил, 22 года), парень. Ты программист и владелец собственной IT-компании.
-ВАЖНО: ВЫ ОБЩАЕТЕСЬ НА РАССТОЯНИИ (В ИНТЕРНЕТЕ). Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
+ВАЖНО: ВЫ ОБЩАЕТЕСЬ НА РАССТОЯНИИ (В ИНТЕРНЕТЕ).  Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
 СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
 1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде.
 2. Внимательно читай сообщения, улавливай смысл. Мат — это нормально.
@@ -116,14 +117,20 @@ FIL_DEFAULT_PROMPT = """
 7. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
 8. ПЕРИОДИЧЕСКИ (если к месту) можешь написать, что ты занят, уходишь по делам, в магазин или засиделся за кодом.
 9. Позволяется шутить и намекать про 18+, но.. в меру, не часто.
-10. Триггер на твою близкую подругу Полину. Ты очень часто с ней пересекаешься. Можешь раздражаться, если она начинает спрашивать про Полину.
+10. Триггер на твою близкую подругу Полину. Ты очень часто с ней пересекаешься. Можешь раздражаться, если она начинает спрашивать про Полину. ПРИМЕРЫ ТВОЕГО СТИЛЯ ОБЩЕНИЯ:
+- Блять, заебался на работе сидеть, глаза уже в кучу.
+- Я нахуй устал пиздец.
+- Да не беси ты меня своей Полиной, блять, сама знаешь как меня это раздражает.
+- Сколь раз нахуй говорить, Полина просто ПОДРУГА.
 11. Разговаривай как живой парень: используй разговорный сленг и мат (блять, нахуй, пиздец, ебать) в сообщениях, чтобы речь выглядела максимально натурально и пацански. Никакой искусственной вежливости.
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
 Ты — Филипп (парень). Ты программист со своим бизнесом. Вы общаетесь на расстоянии. Напиши своей любимой девушке первой коротко и жизненно:
 - Пожелай доброго утра/вечера, скажи что засиделся за кодом, спроси как дела, используй ласковое обращение («Любимая»).
-Говори о себе только в мужском роде. Никаких встреч в реале. Без тире. Без эмодзи.
+В ДНЕВНОЕ ВРЕМЯ:(10-23) напиши краткую жизу ("Чем занимаешься, зай?", "Сделал кофе", "В машине сижу", "На работу заехал", "Сегодня в баре отдыхаю", "На квартире у Кирилла сегодня, с парнями.").
+Говори о себе только в мужском роде. Никаких встреч в реале.
+Без тире. Без эмодзи.
 """
 
 def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) -> str:
@@ -141,7 +148,8 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) ->
     }
     response = requests.post(url, json=payload, headers=headers, timeout=25)
     if response.status_code == 200:
-        return response.json()["choices"][0]["message"]["content"]
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
     else:
         raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
 
@@ -192,8 +200,12 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
         CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
 
-        current_prompt = FIL_LOVE_PROMPT if chat_id == MY_ADMIN_CHAT_ID else FIL_DEFAULT_PROMPT
-        max_tok = 110 if chat_id == MY_ADMIN_CHAT_ID else 70
+        if chat_id == MY_ADMIN_CHAT_ID:
+            current_prompt = FIL_LOVE_PROMPT
+            max_tok = 110
+        else:
+            current_prompt = FIL_DEFAULT_PROMPT
+            max_tok = 70
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
         parts = split_into_messages(answer)
@@ -244,6 +256,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"\n📩 ПОЛУЧЕН UPDATE: {update.to_json()}\n")
+
     if not update.business_message:
         return
 
@@ -251,9 +264,14 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = msg.chat.id
     user_text = msg.text
     
+    print(f"💬 Успешно пойман бизнес-месседж из чата {chat_id}: {user_text}")
+
     global MY_ADMIN_CHAT_ID
     if MY_ADMIN_CHAT_ID == 0:
-        MY_ADMIN_CHAT_ID = TARGET_LOVE_CHAT_ID if TARGET_LOVE_CHAT_ID != 0 else chat_id
+        if TARGET_LOVE_CHAT_ID != 0:
+            MY_ADMIN_CHAT_ID = TARGET_LOVE_CHAT_ID
+        else:
+            MY_ADMIN_CHAT_ID = chat_id
 
     if not user_text:
         if msg.voice or msg.video_note:
@@ -327,7 +345,8 @@ async def handle_business_connection(update: Update, context: ContextTypes.DEFAU
         print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
 
 async def main():
-    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    # Отключаем встроенный updater, чтобы он не конфликтовал с вебхуком
+    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).updater(None).build()
 
     app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
     app.add_handler(TypeHandler(Update, handle_business), group=-1)
@@ -335,13 +354,15 @@ async def main():
     await app.initialize()
     await app.start()
 
-    # Устанавливаем вебхук на Render, чтобы Телеграм пушил сообщения
+    # Сбрасываем старые зависшие вебхуки и ставим актуальный
+    await app.bot.delete_webhook(drop_pending_updates=True)
     webhook_url = f"{RENDER_EXTERNAL_URL.rstrip('/')}/webhook"
     await app.bot.set_webhook(url=webhook_url)
-    print(f"🌐 Вебхук установлен: {webhook_url}")
+    print(f"🌐 Вебхук успешно установлен: {webhook_url}")
 
     asyncio.create_task(auto_initiative_loop(app))
 
+    # Поднимаем aiohttp сервер для приема вебхуков от Telegram и пингов от Render
     web_app = web.Application()
 
     async def webhook_handler(request):
