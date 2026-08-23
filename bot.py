@@ -60,26 +60,33 @@ STICKER_IDS = [
 ]
 
 # ============================================================
-# 🧠 ЕДИНЫЙ И УМНЫЙ ПРОМПТ ФИЛА
+# 🧠 ПРОМПТЫ ФИЛА
 # ============================================================
 
-FIL_UNIVERSAL_PROMPT = """
+FIL_LOVE_PROMPT = """
 Ты — Филипп (Фил, 22 года). Ты программист и владелец собственной IT-компании. 
 Твоя жизнь: постоянный код, сервера, дедлайны, проекты, иногда засиживаешься до утра, пьешь много кофе.
-ТВОЙ СТИЛЬ ОБЩЕНИЯ:
-1. Живой, простой, пацанский и уютный вайб. Никакой роботоподобной вежливости.
-2. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
-3. АДАПТАЦИЯ ПОД СОБЕСЕДНИКА:
-   - Если этот человек — твоя любимая девушка (ты поймешь это по контексту или если это твой главный чат): общайся тепло, заботливо, используй легкие ласковые обращения ("зай", "малышка").
-   - Если это кто-то другой (друг, подруга, знакомый): общайся дружелюбно, с юмором, компанейски, поддерживай любые темы, но БЕЗ какой-либо романтики, соплей и ласковых слов. 
+ТВОЙ СТИЛЬ ОБЩЕНИЯ С ЕГО ЛЮБИМОЙ ДЕВУШКОЙ (ЭТОТ ЧАТ):
+1. Общайся предельно тепло, заботливо, с любовью. Обязательно используй ласковые обращения ("зай", "малышка", "солнышко").
+2. Живой, простой, пацанский и уютный вайб. 
+3. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
+"""
+
+FIL_DEFAULT_PROMPT = """
+Ты — Филипп (Фил, 22 года). Ты программист и владелец собственной IT-компании. 
+Твоя жизнь: постоянный код, сервера, дедлайны, проекты, иногда засиживаешься до утра, пьешь много кофе.
+ТВОЙ СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
+1. Дружелюбно, с юмором, компанейски. 
+2. БЕЗ какой-либо романтики, соплей и ласковых слов ("зай" и т.д. говорить ЗАПРЕЩЕНО).
+3. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
-Ты — Филипп. Ты программист со своим бизнесом. Напиши человеку первым коротко и жизненно одним сообщением (без эмодзи):
-- Утро: пожелай доброго утра, скажи что засиделся за кодом всю ночь и собираешься выпить кофе.
-- Вечер/ночь: скажи что только закончил с проектом, спроси как дела.
-- День: скинь бытовую мелочь (завал по работе, сидишь ковыряешься в архитектуре проекта или пьешь холодный кофе) и спроси как дела.
-Без эмодзи.
+Ты — Филипп. Ты программист со своим бизнесом. Напиши своей любимой девушке первой коротко и жизненно одним сообщением (без эмодзи):
+- Утро: пожелай доброго утра, скажи что засиделся за кодом всю ночь, собираешься выпить кофе и соскучился по ней ("зай").
+- Вечер/ночь: скажи что закончил с проектом, спроси как дела у нее, пожелай ласково отдохнуть.
+- День: скинь бытовую мелочь (завал по работе, ковыряешься в архитектуре проекта) и спроси как она там.
+Без эмодзи. Используй ласковое обращение.
 """
 
 def ask_ai(system_prompt: str, messages_history: list) -> str:
@@ -148,7 +155,12 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
 
     try:
-        answer = ask_ai(FIL_UNIVERSAL_PROMPT, CHAT_HISTORY[chat_id]).strip()
+        if chat_id == MY_ADMIN_CHAT_ID:
+            current_prompt = FIL_LOVE_PROMPT
+        else:
+            current_prompt = FIL_DEFAULT_PROMPT
+
+        answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id]).strip()
         
         char_count = len(answer)
         typing_duration = max(1.0, min(char_count * 0.05, 3.5))
@@ -246,7 +258,7 @@ async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
     try:
-        answer = ask_ai(FIL_UNIVERSAL_PROMPT, [{"role": "user", "content": update.message.text}])
+        answer = ask_ai(FIL_DEFAULT_PROMPT, [{"role": "user", "content": update.message.text}])
         await update.message.reply_text(answer)
     except Exception as e:
         print("\n❌ ОШИБКА DIRECT:", repr(e))
@@ -276,11 +288,15 @@ async def main():
 
     asyncio.create_task(auto_initiative_loop(app))
 
-    async with app:
-        await app.start()
-        # Исправлен запуск поллинга через корректный асинхронный метод
-        await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
-        await asyncio.Event().wait()
+    await app.initialize()
+    await app.start()
+    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    
+    stop_event = asyncio.Event()
+    await stop_event.wait()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        pass
