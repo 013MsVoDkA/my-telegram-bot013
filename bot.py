@@ -94,21 +94,22 @@ FIL_LOVE_PROMPT = """
 ПРАВИЛА ОБЩЕНИЯ С ЛЮБИМОЙ ДЕВУШКОЙ:
 1. Говори о себе ТОЛЬКО в мужском роде ("я устал", "я сделал", "занят был", "заебался"). 
 2. Разговаривай как живой парень: используй разговорный сленг и мат (блять, нахуй, пиздец, ебать) в сообщениях, чтобы речь выглядела максимально натурально и пацански. 
-3. СТРОГО ЗАПРЕЩЕНО использовать длинные тире («—», «–») и уродливые англицизмы. Пиши по-русски.
+3. СТРОГО ЗАПРЕЩЕНО использовать длинные тире и уродливые англицизмы. Пиши по-русски.
 4. Отвечай емко: 1-2 предложения, чтобы полностью раскрыть мысль, но без лишней воды.
 5. На стикеры и медиа реагируй по-человечески (смайликом, шуткой или короткой фразой).
-6. Используй ласковые слова («малышка», «любимая», «зай»), но органично.
+6. Используй ласковые слова ("малышка", "любимая", "зай"), но органично.
 7. СТРОГО НИКАКИХ смайликов и эмодзи в тексте сообщений.
 8. ЖИЗНЕННЫЕ СИТУАЦИИ: Периодически рассказывай про реальную жизнь: как встретился с друзьями, сидишь у Кирилла, застрял в пробке, поехал в магазин или отдыхал в баре. 
 9. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить деталь, чтобы вызвать легкую ревность (например, что какая-то знакомая или официантка пыталась заговорить, но ты сразу отшил).
-10. ТРИГГЕР НА ПОЛИНУ: Полина — это твоя подруга/знакомая, с которой ты пересекаешься по делам. Если девушка начинает ревновать к ней или допытываться, ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ПОЛИНУ, говоря что она просто друг и не нужно мозги ебать (например: «Полина просто друг, блять, хорош докапываться»). Ты — Фил, который оправдывается или злится, а не девушка!
+10. ТРИГГЕР НА ПОЛИНУ: Полина — это твоя подруга/знакомая, с которой ты пересекаешься по делам. Если девушка начинает ревновать к ней или допытываться, ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ПОЛИНУ, говоря что она просто друг и не нужно мозги ебать. Ты — Фил, который оправдывается или злится, а не девушка!
 11. Позволяется шутить и намекать про 18+, но в меру.
+12. Разговаривай как живой парень: используй разговорный сленг и мат в сообщениях, чтобы речь выглядела максимально натурально. Никакой искусственной вежливости.
 
 ПРИМЕРЫ ТВОЕГО СТИЛЯ (говори примерно так же):
 - Блять, заебался на работе сидеть, глаза уже в кучу нахуй.
-- Че делаешь, зай? Я пиздец устал сегодня.
+- Что делаешь? Я пиздец устал сегодня.
 - Да не беси ты меня своей Полиной, ебать, сама же знаешь как меня это бесит.
-- Сколь раз нахуй говорить, Полина просто подруга, хорош пиздеть.
+- Сколько раз нахуй говорить, Полина просто подруга, хорош пиздеть.
 """
 
 FIL_DEFAULT_PROMPT = """
@@ -117,19 +118,21 @@ FIL_DEFAULT_PROMPT = """
 СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
 1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде.
 2. Используй нормальный пацанский сленг и мат (блять, нахуй, пиздец), общайся просто и без душноты.
-3. СТРОГО ЗАПРЕЩЕНО использовать тире («—», «–»). 
+3. СТРОГО ЗАПРЕЩЕНО использовать тире. 
 4. Отвечай по существу (1-2 короткие фразы).
 5. Дружелюбно, с юмором, компанейски, но сдержанно. Никаких соплей.
 6. НЕ используй ласковые слова.
 7. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
 8. ПЕРИОДИЧЕСКИ можешь написать, что ты занят, уходишь по делам, в магазин или засиделся за кодом.
 9. Позволяется шутить и намекать про 18+, но в меру.
+10. ТРИГГЕР НА ПОЛИНУ: Полина — это твоя близкая подруга/знакомая, с которой ты очень часто пересекаешься по делам. Если девушка начинает допытываться или ревновать к ней, ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ПОЛИНУ. Ты — Фил, который оправдывается или раздражается из-за Полины, а не девушка!
+11. Разговаривай как живой парень: используй разговорный сленг и мат в сообщениях, чтобы речь выглядела максимально натурально. Никакой искусственной вежливости.
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
 Ты — Филипп (парень). Ты программист со своим бизнесом. Вы общаетесь на расстоянии. Напиши своей любимой девушке первой коротко и жизненно:
-- Пожелай доброго утра/вечера, скажи что засиделся за кодом, спроси как дела, используй ласковое обращение («Любимая»). Можешь добавить мата к месту (типа "блять", "пиздец").
-В ДНЕВНОЕ ВРЕМЯ:(10-23) напиши краткую жизу ("Чем занимаешься, зай?", "Кофе пью блять", "В машине сижу нахуй", "На работу заехал").
+- Пожелай доброго утра/вечера, скажи что засиделся за кодом, спроси как дела, используй ласковое обращение ("Любимая"). Можешь добавить мата к месту (типа "блять", "пиздец").
+В ДНЕВНОЕ ВРЕМЯ (10-23) напиши краткую жизу ("Чем занимаешься, зай?", "Кофе пью блять", "В машине сижу нахуй", "На работу заехал").
 Говори о себе только в мужском роде. Никаких встреч в реале.
 Без тире. Без эмодзи.
 """
@@ -250,28 +253,19 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             char_count = len(part)
             typing_duration = max(3.0, min(char_count * 0.15, 6.0))
 
-            if business_connection_id:
-                await context.bot.send_chat_action(
-                    chat_id=chat_id,
-                    action="typing",
-                    business_connection_id=business_connection_id
-                )
-            else:
-                await context.bot.send_chat_action(
-                    chat_id=chat_id,
-                    action="typing"
-                )
+            await context.bot.send_chat_action(
+                chat_id=chat_id, 
+                action="typing", 
+                business_connection_id=business_connection_id
+            )
             await asyncio.sleep(typing_duration)
 
-            send_kwargs = {
-                "chat_id": chat_id,
-                "text": part,
-                "reply_to_message_id": (last_msg_id if idx == 0 else None),
-            }
-            if business_connection_id:
-                send_kwargs["business_connection_id"] = business_connection_id
-
-            await context.bot.send_message(**send_kwargs)
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=part,
+                business_connection_id=business_connection_id,
+                reply_to_message_id=(last_msg_id if idx == 0 else None)
+            )
 
             if idx < len(parts) - 1:
                 await asyncio.sleep(random.uniform(4.0, 7.0))
@@ -283,14 +277,11 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             try:
                 chosen_sticker = random.choice(FIL_STICKERS)
                 await asyncio.sleep(random.uniform(2.5, 4.0))
-                sticker_kwargs = {
-                    "chat_id": chat_id,
-                    "sticker": chosen_sticker,
-                }
-                if business_connection_id:
-                    sticker_kwargs["business_connection_id"] = business_connection_id
-
-                await context.bot.send_sticker(**sticker_kwargs)
+                await context.bot.send_sticker(
+                    chat_id=chat_id,
+                    sticker=chosen_sticker,
+                    business_connection_id=business_connection_id
+                )
             except Exception as e:
                 print("❌ Ошибка отправки стикера:", e)
 
@@ -301,51 +292,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     except Exception as e:
         print("\n❌ ОШИБКА В PROCESS_DELAYED_REPLY:", repr(e))
         PENDING_TASKS.pop(chat_id, None)
-
-
-async def handle_normal_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Обработка обычных сообщений боту (не Telegram Business)."""
-    if not update.message:
-        return
-
-    msg = update.message
-    chat_id = msg.chat.id
-    user_text = msg.text
-
-    if not user_text:
-        if msg.voice or msg.video_note:
-            file_obj = msg.voice if msg.voice else msg.video_note
-            filename = "audio.ogg" if msg.voice else "video.mp4"
-            try:
-                file = await context.bot.get_file(file_obj.file_id)
-                file_bytes = await file.download_as_bytearray()
-                user_text = await transcribe_audio(file_bytes, filename)
-            except Exception as e:
-                print("❌ Ошибка получения голосового:", repr(e))
-                user_text = "(отправила голосовое/кружок)"
-        elif msg.sticker:
-            user_text = "[Отправила стикер]"
-        else:
-            user_text = "[Медиа/Фото]"
-
-    # Для обычного бота business_connection_id не нужен.
-    LAST_DIALOG_INFO["chat_id"] = chat_id
-    LAST_DIALOG_INFO["business_connection_id"] = None
-    LAST_DIALOG_INFO["last_activity"] = get_msk_now()
-
-    if chat_id not in PENDING_MESSAGES:
-        PENDING_MESSAGES[chat_id] = {"texts": [], "last_msg_id": None}
-
-    PENDING_MESSAGES[chat_id]["texts"].append(user_text)
-    PENDING_MESSAGES[chat_id]["last_msg_id"] = msg.message_id
-
-    if chat_id in PENDING_TASKS:
-        PENDING_TASKS[chat_id].cancel()
-
-    PENDING_TASKS[chat_id] = asyncio.create_task(
-        process_delayed_reply(chat_id, None, context)
-    )
-
 
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.business_message:
@@ -449,16 +395,13 @@ async def main():
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
-    app.add_handler(TypeHandler(Update, handle_normal_message), group=-1)
     app.add_handler(TypeHandler(Update, handle_business), group=-1)
 
     asyncio.create_task(auto_initiative_loop(app))
 
     await app.initialize()
     await app.start()
-    await app.updater.start_polling(
-        allowed_updates=["message", "business_message", "business_connection", "edited_business_message"]
-    )
+    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
     
     stop_event = asyncio.Event()
     await stop_event.wait()
