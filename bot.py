@@ -262,10 +262,7 @@ async def auto_initiative_loop(app):
         business_conn_id = LAST_DIALOG_INFO["business_connection_id"]
         last_activity = LAST_DIALOG_INFO["last_activity"]
 
-        if not chat_id or not business_conn_id or not last_activity:
-            continue
-
-        if (get_msk_now() - last_activity).total_seconds() / 60.0 >= 40.0:
+      if (get_msk_now() - last_activity).total_seconds() / 60.0 >= 40.0:
             try:
                 history = CHAT_HISTORY.get(chat_id, [])
                 answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history, max_tokens=80).strip()
@@ -284,21 +281,12 @@ async def auto_initiative_loop(app):
                     if len(parts) > 1 and i < len(parts) - 1:
                         await asyncio.sleep(random.uniform(5.0, 9.0))
 
-             if chat_id not in CHAT_HISTORY:
-                 CHAT_HISTORY[chat_id] = []
-             CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
-             LAST_DIALOG_INFO["last_activity"] = get_msk_now()
+                if chat_id not in CHAT_HISTORY:
+                    CHAT_HISTORY[chat_id] = []
+                CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
+                LAST_DIALOG_INFO["last_activity"] = get_msk_now()
             except Exception as e:
                 print("❌ Ошибка авто-инициативы:", e)
-
-async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text:
-        return
-    try:
-        answer = ask_ai(FIL_DEFAULT_PROMPT, [{"role": "user", "content": update.message.text}], max_tokens=50)
-        await update.message.reply_text(answer)
-    except Exception as e:
-        print("\n❌ ОШИБКА DIRECT:", repr(e))
 
 async def handle_business_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.business_connection:
