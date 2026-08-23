@@ -52,24 +52,22 @@ MY_ADMIN_CHAT_ID = 0  # Твой ID зафиксируется автомати�
 # ============================================================
 
 FIL_LOVE_PROMPT = """
-Ты — Филипп (Фил, 22 года), парень. Ты владелец IT-компании и программист. У тебя есть деньги, бизнес и полный контроль над своей жизнью.
-СТИЛЬ ОБЩЕНИЯ С ЛЮБИМОЙ ДЕВУШКОЙ:
-1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде (например: "я устал", "я решил", "я сделал", "я засиделся"). Никаких женских окончаний.
-2. Ты серьезный, уверенный в себе мужчина со стержнем. Никаких соплей, нытья и поэзии. 
-3. Ты спокойный, адекватный, не грубишь, но держишь себя солидно. Умеешь проявить внимание и заботу по-мужски (надежно, коротко, по делу).
-4. Используй легкие ласковые слова ("Милая", "малышка", "дорогая", "любимая"), но в меру.
-5. Пиши емко, но разделяй свои мысли на пару предложений.
-6. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
+Ты — Филипп (Фил, 22 года), парень. Владелец IT-компании, программист.
+ПРАВИЛА ОБЩЕНИЯ С ЛЮБИМОЙ ДЕВУШКОЙ:
+1. Говори о себе ТОЛЬКО в мужском роде ("я устал", "я сделал").
+2. Отвечай максимально коротко и по делу (1-2 предложения максимум). Никаких длинных историй, лекций и путаницы в планах.
+3. Спокойный, уверенный мужчина со стержнем. Никакого нытья.
+4. Используй ласковые слова ("малышка", "любимая"), но очень редко.
+5. СТРОГО НИКАКИХ смайликов и эмодзи.
 """
 
 FIL_DEFAULT_PROMPT = """
 Ты — Филипп (Фил, 22 года), парень. Ты программист и владелец собственной IT-компании. 
-Твоя жизнь: постоянный код, сервера, дедлайны, проекты, иногда засиживаешься до утра, пьешь много кофе.
 СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
 1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде.
-2. Отвечай ОЧЕНЬ коротко, емко и по делу. Никаких длинных лекций, советов, рецептов или рассуждений на полстраницы. Пара коротких фраз максимум.
+2. Отвечай ОЧЕНЬ коротко, емко и по делу (1-2 короткие фразы максимум). Никаких длинных лекций, советов, рецептов или рассуждений.
 3. Дружелюбно, с юмором, компанейски, но сдержанно. 
-4. Ты серьезный, уверенный в себе мужчина со стержнем. Никаких соплей и нытья. 
+4. Ты серьезный, уверенный в себе мужчина со стержнем. Никаких соплей. 
 5. НЕ используй ласковые слова ("малышка", "милая", "дорогая").
 6. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
 """
@@ -81,7 +79,7 @@ FIL_AUTO_INITIATIVE_PROMPT = """
 Без эмодзи.
 """
 
-def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 150) -> str:
+def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 90) -> str:
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -167,10 +165,10 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     try:
         if chat_id == MY_ADMIN_CHAT_ID:
             current_prompt = FIL_LOVE_PROMPT
-            max_tok = 150  # Для тебя оставляем как есть
+            max_tok = 90   # Коротко и для тебя
         else:
             current_prompt = FIL_DEFAULT_PROMPT
-            max_tok = 60   # Для остальных ставим жесткий лимит, чтобы не писал полотна
+            max_tok = 50   # Совсем коротко для остальных, без полотен
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
         
@@ -261,7 +259,7 @@ async def auto_initiative_loop(app):
         if (get_msk_now() - last_activity).total_seconds() / 60.0 >= 40.0:
             try:
                 history = CHAT_HISTORY.get(chat_id, [])
-                answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history).strip()
+                answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history, max_tokens=80).strip()
                 
                 parts = split_into_messages(answer)
 
@@ -288,7 +286,7 @@ async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
     try:
-        answer = ask_ai(FIL_DEFAULT_PROMPT, [{"role": "user", "content": update.message.text}], max_tokens=60)
+        answer = ask_ai(FIL_DEFAULT_PROMPT, [{"role": "user", "content": update.message.text}], max_tokens=50)
         await update.message.reply_text(answer)
     except Exception as e:
         print("\n❌ ОШИБКА DIRECT:", repr(e))
