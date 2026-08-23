@@ -44,49 +44,35 @@ LAST_DIALOG_INFO = {
     "last_activity": None
 }
 
-MY_ADMIN_CHAT_ID = 0  # Твой ID зафиксируется автоматически с первого сообщения
+MY_ADMIN_CHAT_ID = 0  # Твой ID зафиксируется автоматически
 
 # ============================================================
-# 🎨 СТИКЕРЫ ФИЛА
-# ============================================================
-
-STICKER_IDS = [
-    "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
-    "CAACAgIAAxkBAAEt5OVqia1yeaxw4HNnXD_qUJc7nIjvcAACBhoAAvU3kEokds_i1WNAXz0E",
-    "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
-    "CAACAgIAAxkBAAEt6UJqihNSOz060mRFj-CwB5OJE4XxKQACpQwAAtSJaEqpT1MLSJlJ2T0E",
-    "CAACAgQAAxkBAAEt6UBqihNIGN92Nz3ryhHuOXXvrWMwJwACEAEAAugKMS1FZwu9ZzmHfz0E",
-    "CAACAgIAAxkBAAEt6T5qihMd9L4moD4epPXhjmXACCJSVgACsRoAArvAMUmITAtffjamgT0E",
-]
-
-# ============================================================
-# 🧠 ПРОМПТЫ ФИЛА
+# 🧠 ПРОМПТЫ ФИЛА (С УЧЕТОМ НЕСКОЛЬКИХ СООБЩЕНИЙ)
 # ============================================================
 
 FIL_LOVE_PROMPT = """
 Ты — Филипп (Фил, 22 года). Ты программист и владелец собственной IT-компании. 
 Твоя жизнь: постоянный код, сервера, дедлайны, проекты, иногда засиживаешься до утра, пьешь много кофе.
-ТВОЙ СТИЛЬ ОБЩЕНИЯ С ЕГО ЛЮБИМОЙ ДЕВУШКОЙ (ЭТОТ ЧАТ):
-1. Общайся предельно тепло, заботливо, с любовью. Обязательно используй ласковые обращения ("зай", "малышка", "солнышко").
-2. Живой, простой, пацанский и уютный вайб. 
-3. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
+СТИЛЬ ОБЩЕНИЯ С ЛЮБИМОЙ ДЕВУШКОЙ:
+1. Тепло, заботливо, с любовью. Обязательно используй ласковые обращения ("зай", "малышка", "солнышко").
+2. Пиши короткими фразами, разделяя мысль на 2-3 отдельных небольших сообщения (используй переносы строк или абзацы, чтобы бот мог отправить их пачкой).
+3. Живой, простой, пацанский и уютный вайб. 
+4. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
 """
 
 FIL_DEFAULT_PROMPT = """
 Ты — Филипп (Фил, 22 года). Ты программист и владелец собственной IT-компании. 
 Твоя жизнь: постоянный код, сервера, дедлайны, проекты, иногда засиживаешься до утра, пьешь много кофе.
-ТВОЙ СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
+СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
 1. Дружелюбно, с юмором, компанейски. 
-2. БЕЗ какой-либо романтики, соплей и ласковых слов ("зай" и т.д. говорить ЗАПРЕЩЕНО).
+2. БЕЗ какой-либо романтики, соплей и ласковых слов ("зай" говорить ЗАПРЕЩЕНО).
 3. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
-Ты — Филипп. Ты программист со своим бизнесом. Напиши своей любимой девушке первой коротко и жизненно одним сообщением (без эмодзи):
-- Утро: пожелай доброго утра, скажи что засиделся за кодом всю ночь, собираешься выпить кофе и соскучился по ней ("зай").
-- Вечер/ночь: скажи что закончил с проектом, спроси как дела у нее, пожелай ласково отдохнуть.
-- День: скинь бытовую мелочь (завал по работе, ковыряешься в архитектуре проекта) и спроси как она там.
-Без эмодзи. Используй ласковое обращение.
+Ты — Филипп. Ты программист со своим бизнесом. Напиши своей любимой девушке первой коротко и жизненно (без эмодзи):
+- Пожелай доброго утра/вечера, скажи что засиделся за кодом, спроси как дела, используй ласковое обращение ("зай").
+Без эмодзи.
 """
 
 def ask_ai(system_prompt: str, messages_history: list) -> str:
@@ -134,7 +120,7 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    delay_seconds = random.uniform(6.0, 14.0)
+    delay_seconds = random.uniform(5.0, 10.0)
     await asyncio.sleep(delay_seconds)
 
     data = PENDING_MESSAGES.pop(chat_id, {})
@@ -162,22 +148,35 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id]).strip()
         
-        char_count = len(answer)
-        typing_duration = max(1.0, min(char_count * 0.05, 3.5))
+        # Разбиваем ответ на несколько частей по абзацам или знакам препинания, чтобы слать пачкой
+        parts = [p.strip() for p in answer.split('\n') if p.strip()]
+        if not parts:
+            parts = [answer]
 
-        await context.bot.send_chat_action(
-            chat_id=chat_id, 
-            action="typing", 
-            business_connection_id=business_connection_id
-        )
-        await asyncio.sleep(typing_duration)
+        # Если частей несколько, отправим их с небольшой задержкой (как будто печатает)
+        for i, part in enumerate(parts):
+            char_count = len(part)
+            typing_duration = max(0.8, min(char_count * 0.04, 2.5))
 
-        await context.bot.send_message(
-            chat_id=chat_id,
-            text=answer,
-            business_connection_id=business_connection_id,
-            reply_to_message_id=last_msg_id
-        )
+            await context.bot.send_chat_action(
+                chat_id=chat_id, 
+                action="typing", 
+                business_connection_id=business_connection_id
+            )
+            await asyncio.sleep(typing_duration)
+
+            # Отвечаем на исходное сообщение только для первой части, остальные идут следом
+            reply_id = last_msg_id if i == 0 else None
+
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=part,
+                business_connection_id=business_connection_id,
+                reply_to_message_id=reply_id
+            )
+            
+            if len(parts) > 1 and i < len(parts) - 1:
+                await asyncio.sleep(1.0)
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
