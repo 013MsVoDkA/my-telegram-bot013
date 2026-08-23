@@ -409,7 +409,7 @@ async def main():
 
     asyncio.create_task(auto_initiative_loop(app))
 
-    # Безопасный запуск поллинга через встроенный метод PTB
+    # СТРОГО run_polling — единственный правильный метод для PTB v20+
     await app.run_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
 
 if __name__ == "__main__":
