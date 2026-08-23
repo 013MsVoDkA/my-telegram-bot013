@@ -262,7 +262,10 @@ async def auto_initiative_loop(app):
         business_conn_id = LAST_DIALOG_INFO["business_connection_id"]
         last_activity = LAST_DIALOG_INFO["last_activity"]
 
-      if (get_msk_now() - last_activity).total_seconds() / 60.0 >= 40.0:
+        if not chat_id or not business_conn_id or not last_activity:
+            continue
+
+        if (get_msk_now() - last_activity).total_seconds() / 60.0 >= 40.0:
             try:
                 history = CHAT_HISTORY.get(chat_id, [])
                 answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history, max_tokens=80).strip()
