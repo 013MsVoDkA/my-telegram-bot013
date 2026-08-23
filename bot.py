@@ -404,13 +404,19 @@ async def main():
 
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
+    await app.initialize()
+    await app.updater.initialize()
+
     app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
     app.add_handler(TypeHandler(Update, handle_business), group=-1)
 
     asyncio.create_task(auto_initiative_loop(app))
 
-    # СТРОГО run_polling — единственный правильный метод для PTB v20+
-    await app.run_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    await app.start()
+
+    while True:
+        await asyncio.sleep(3600)
 
 if __name__ == "__main__":
     try:
