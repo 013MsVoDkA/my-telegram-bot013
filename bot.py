@@ -154,11 +154,11 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             parts = [answer]
 
         # Если частей несколько, отправим их с небольшой задержкой (как будто печатает)
-       # Если частей несколько, сделаем паузу реалистичнее, как у человека
+      # Делаем паузы совсем человеческими и размеренными
         for i, part in enumerate(parts):
             char_count = len(part)
-            # Увеличили коэффициент, чтобы статус печати висел дольше
-            typing_duration = max(1.5, min(char_count * 0.08, 4.5))
+            # Статус "печатает" висит дольше
+            typing_duration = max(2.5, min(char_count * 0.12, 7.0))
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -177,9 +177,9 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 reply_to_message_id=reply_id
             )
             
-            # Пауза между отправкой отдельных сообщений (2.5-4 секунды)
+            # Пауза между отправкой отдельных сообщений (теперь от 4 до 7 секунд)
             if len(parts) > 1 and i < len(parts) - 1:
-                await asyncio.sleep(random.uniform(2.5, 4.0))
+                await asyncio.sleep(random.uniform(4.0, 7.0))
 
     except Exception as e:
         print("\n❌ ОШИБКА BUSINESS:", repr(e))
