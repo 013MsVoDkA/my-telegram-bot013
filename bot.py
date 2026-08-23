@@ -409,12 +409,8 @@ async def main():
 
     asyncio.create_task(auto_initiative_loop(app))
 
-    # Корректный запуск поллинга без вебхук-ошибок
-    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
-    await app.start()
-    
-    stop_event = asyncio.Event()
-    await stop_event.wait()
+    # Безопасный запуск поллинга через встроенный метод PTB
+    await app.run_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
 
 if __name__ == "__main__":
     try:
