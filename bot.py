@@ -49,6 +49,19 @@ LAST_DIALOG_INFO = {
 
 MY_ADMIN_CHAT_ID = 1257683623
 
+# Статус занятости Фила
+FIL_STATUS = {
+    "is_busy": False,
+    "busy_until": None,
+    "busy_reason": ""
+}
+
+# Список стикеров (сюда можно вставить file_id стикеров)
+FIL_STICKERS = [
+    "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
+    "CAACAgIAAxkBAAEt7slqiwhqxhmc7FUsY-EQsXkVtmevgQACPiIAAlVnMEl8llJpuz-g9z0E",
+]
+
 # ============================================================
 # 🧠 ПРОМПТЫ ФИЛА
 # ============================================================
@@ -64,6 +77,7 @@ FIL_LOVE_PROMPT = """
 5. На стикеры и медиа реагируй по-человечески (смайликом, шуткой или короткой фразой).
 6. Используй ласковые слова («малышка», «любимая»), но редко.
 7. СТРОГО НИКАКИХ смайликов и эмодзи в тексте сообщений.
+8. ПЕРИОДИЧЕСКИ (если к месту) можешь написать, что ты занят, уходишь по делам, в магазин, засиделся за кодом или отлучаешься на время (например: "я сгоняю в магаз", "мне надо отвлечься по работе").
 """
 
 FIL_DEFAULT_PROMPT = """
@@ -77,6 +91,7 @@ FIL_DEFAULT_PROMPT = """
 5. Дружелюбно, с юмором, компанейски, но сдержанно. Никаких соплей. 
 6. НЕ используй ласковые слова («малышка», «милая», «дорогая»).
 7. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
+8. ПЕРИОДИЧЕСКИ (если к месту) можешь написать, что ты занят, уходишь по делам, в магазин, засиделся за кодом или отлучаешься на время (например: "я сгоняю в магаз", "мне надо отвлечься по работе").
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
@@ -153,7 +168,15 @@ async def keep_typing(context, chat_id, business_connection_id, duration):
         elapsed += 4
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    delay_seconds = random.uniform(6.0, 8.0)
+    # Логика рандомной занятости
+    if FIL_STATUS["is_busy"]:
+        if FIL_STATUS["busy_until"] and get_msk_now() < FIL_STATUS["busy_until"]:
+            delay_seconds = random.uniform(300.0, 900.0)  # пропал на 5-15 минут
+        else:
+            FIL_STATUS["is_busy"] = False
+            delay_seconds = random.uniform(6.0, 8.0)
+    else:
+        delay_seconds = random.uniform(6.0, 8.0)
     
     typing_task = asyncio.create_task(keep_typing(context, chat_id, business_connection_id, delay_seconds))
     await asyncio.sleep(delay_seconds)
@@ -185,6 +208,16 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             max_tok = 70
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
+        
+        # Проверка на уход по делам
+        lower_ans = answer.lower()
+        busy_keywords = ["магазин", "магаз", "дела", "работу", "отойду", "вернусь", "занят", "поем", "машине", "баре"]
+        if any(word in lower_ans for word in busy_keywords) and not FIL_STATUS["is_busy"]:
+            FIL_STATUS["is_busy"] = True
+            min_ away = random.randint(20, 50)
+            FIL_STATUS["busy_until"] = get_msk_now() + timedelta(minutes=min_away)
+            FIL_STATUS["busy_reason"] = answer
+
         parts = split_into_messages(answer)
 
         for idx, part in enumerate(parts):
@@ -207,6 +240,19 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
             if idx < len(parts) - 1:
                 await asyncio.sleep(random.uniform(1.0, 2.0))
+
+        # Редкий стикер (шанс 15% или если занят)
+        if FIL_STICKERS and (random.random() < 0.15 or FIL_STATUS["is_busy"]):
+            try:
+                chosen_sticker = random.choice(FIL_STICKERS)
+                await asyncio.sleep(1.0)
+                await context.bot.send_sticker(
+                    chat_id=chat_id,
+                    sticker=chosen_sticker,
+                    business_connection_id=business_connection_id
+                )
+            except Exception:
+                pass
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
