@@ -24,7 +24,9 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
+# ТВОЙ ИДЕНТИФИКАТОР ЖЕЛЕЗОБЕТОННО ЗДЕСЬ (и в admin, и в target)
 TARGET_LOVE_CHAT_ID = 1257683623
+MY_ADMIN_CHAT_ID = 1257683623
 
 MSK_TZ = timezone(timedelta(hours=3))
 
@@ -60,12 +62,10 @@ PENDING_TASKS = {}
 PENDING_MESSAGES = {}
 
 LAST_DIALOG_INFO = {
-    "chat_id": None,
+    "chat_id": TARGET_LOVE_CHAT_ID, # Сразу целимся в тебя
     "business_connection_id": None,
     "last_activity": None
 }
-
-MY_ADMIN_CHAT_ID = 1257683623
 
 # Статус занятости Фила
 FIL_STATUS = {
@@ -229,6 +229,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
         CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
 
+        # ЖЕСТКАЯ ПРОВЕРКА: Твой ID ВСЕГДА получает любовь и мат, остальные — дефолт
         if chat_id == MY_ADMIN_CHAT_ID:
             current_prompt = FIL_LOVE_PROMPT
             max_tok = 110
@@ -301,13 +302,6 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = msg.chat.id
     user_text = msg.text
 
-    global MY_ADMIN_CHAT_ID
-    if MY_ADMIN_CHAT_ID == 0:
-        if TARGET_LOVE_CHAT_ID != 0:
-            MY_ADMIN_CHAT_ID = TARGET_LOVE_CHAT_ID
-        else:
-            MY_ADMIN_CHAT_ID = chat_id
-
     if not user_text:
         if msg.voice or msg.video_note:
             file_obj = msg.voice if msg.voice else msg.video_note
@@ -323,6 +317,7 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             user_text = "[Медиа/Фото]"
 
+    # Всегда обновляем информацию на твой чат-ид
     LAST_DIALOG_INFO["chat_id"] = chat_id
     LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
     LAST_DIALOG_INFO["last_activity"] = get_msk_now()
@@ -345,7 +340,7 @@ async def auto_initiative_loop(app):
     while True:
         await asyncio.sleep(180)
         try:
-            chat_id = LAST_DIALOG_INFO["chat_id"] or TARGET_LOVE_CHAT_ID
+            chat_id = TARGET_LOVE_CHAT_ID # Авто-инициатива летит строго тебе
             business_conn_id = LAST_DIALOG_INFO["business_connection_id"]
             last_activity = LAST_DIALOG_INFO["last_activity"]
 
@@ -401,7 +396,7 @@ async def main():
 
     await app.initialize()
     await app.start()
-    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
     
     stop_event = asyncio.Event()
     await stop_event.wait()
