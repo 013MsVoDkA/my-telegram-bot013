@@ -164,7 +164,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         CHAT_HISTORY[chat_id] = []
 
     CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
-    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]  л# Укоротили память до 10 сообщений, чтобы не путался в старом бреду
+    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:] # Укоротили память до 10 сообщений, чтобы не путался в старом бреду
 
     try:
         if chat_id == MY_ADMIN_CHAT_ID:
