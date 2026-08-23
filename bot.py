@@ -129,24 +129,12 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
-    clean_text = text.replace('\n', ' ').strip()
-    
-    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
-    
-    if len(sentences) >= 2:
-        first_part = " ".join(sentences[:-1])
-        second_part = sentences[-1]
-        return [first_part, second_part]
-    
-    if ',' in clean_text:
-        parts = clean_text.rsplit(',', 1)
-        if len(parts[0]) > 10 and len(parts[1]) > 5:
-            return [parts[0].strip() + '.', parts[1].strip()]
-
-    return [clean_text]
+    # Отключаем дробление на части — пусть отправляет один цельный ответ
+    return [text.replace('\n', ' ').strip()]
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    delay_seconds = random.uniform(5.0, 10.0)
+    # Увеличиваем время ожидания до 8-14 секунд, чтобы ты успела дописать всю мысль целиком
+    delay_seconds = random.uniform(8.0, 14.0)
     await asyncio.sleep(delay_seconds)
 
     data = PENDING_MESSAGES.pop(chat_id, {})
@@ -158,13 +146,14 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     if not messages:
         return
 
+    # Объединяем всё, что ты написала за это время, в один контекст
     combined_text = "\n".join(messages)
 
     if chat_id not in CHAT_HISTORY:
         CHAT_HISTORY[chat_id] = []
 
     CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
-    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:] # Укоротили память до 10 сообщений, чтобы не путался в старом бреду
+    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
 
     try:
         if chat_id == MY_ADMIN_CHAT_ID:
@@ -176,30 +165,24 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
         
-        parts = split_into_messages(answer)
+        # Считаем длину для реалистичного набора текста
+        char_count = len(answer)
+        typing_duration = max(3.0, min(char_count * 0.12, 6.0))
 
-        for i, part in enumerate(parts):
-            char_count = len(part)
-            typing_duration = max(4.0, min(char_count * 0.15, 7.0))
+        await context.bot.send_chat_action(
+            chat_id=chat_id, 
+            action="typing", 
+            business_connection_id=business_connection_id
+        )
+        await asyncio.sleep(typing_duration)
 
-            await context.bot.send_chat_action(
-                chat_id=chat_id, 
-                action="typing", 
-                business_connection_id=business_connection_id
-            )
-            await asyncio.sleep(typing_duration)
-
-            reply_id = last_msg_id if i == 0 else None
-
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=part,
-                business_connection_id=business_connection_id,
-                reply_to_message_id=reply_id
-            )
-            
-            if len(parts) > 1 and i < len(parts) - 1:
-                await asyncio.sleep(random.uniform(5.0, 9.0))
+        # Отправляем одним нормальным сообщением с ответом на твое последнее сообщение
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=answer,
+            business_connection_id=business_connection_id,
+            reply_to_message_id=last_msg_id
+        )
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
