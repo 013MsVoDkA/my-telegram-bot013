@@ -109,7 +109,7 @@ FIL_DEFAULT_PROMPT = """
 СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
 1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде.
 2. Внимательно читай сообщения, улавливай смысл. Мат — это нормально.
-3. СТРОГО ЗАПРЕЩЕНО использовать тире («—», «–»). 
+3. СТРОГО ЗАПРЕЩЕНО использовать тире («—», «–»).  
 4. Отвечай по существу (1-2 короткие фразы).
 5. Дружелюбно, с юмором, компанейски, но сдержанно. Никаких соплей.
 6. НЕ используй ласковые слова («малышка», "милая", "дорогая").
@@ -171,7 +171,8 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
-    clean_text = text.replace('—', ' ').replace('–', ' ').replace('\n', ' ').strip()
+    clean_text = text.replace('—', ' ').replace('–', ' ').replace('
+', ' ').strip()
     sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
     if not sentences:
         return [clean_text]
@@ -210,7 +211,8 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         if not messages:
             return
 
-        combined_text = "\n".join(messages)
+        combined_text = "
+".join(messages)
 
         if chat_id not in CHAT_HISTORY:
             CHAT_HISTORY[chat_id] = []
@@ -279,16 +281,21 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
     except Exception as e:
-        print("\n❌ ОШИБКА В PROCESS_DELAYED_REPLY:", repr(e))
+        print("
+❌ ОШИБКА В PROCESS_DELAYED_REPLY:", repr(e))
         PENDING_TASKS.pop(chat_id, None)
 
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.business_message:
+    msg = update.business_message or update.message
+    if not msg:
         return
 
-    msg = update.business_message
     chat_id = msg.chat.id
     user_text = msg.text
+    
+    business_conn_id = getattr(update, "business_connection_id", None)
+    if not business_conn_id and update.business_message:
+        business_conn_id = update.business_message.business_connection_id
 
     global MY_ADMIN_CHAT_ID
     if MY_ADMIN_CHAT_ID == 0:
@@ -313,7 +320,7 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_text = "[Медиа/Фото]"
 
     LAST_DIALOG_INFO["chat_id"] = chat_id
-    LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
+    LAST_DIALOG_INFO["business_connection_id"] = business_conn_id
     LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
     if chat_id not in PENDING_MESSAGES:
@@ -326,7 +333,7 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
         PENDING_TASKS[chat_id].cancel()
 
     PENDING_TASKS[chat_id] = asyncio.create_task(
-        process_delayed_reply(chat_id, msg.business_connection_id, context)
+        process_delayed_reply(chat_id, business_conn_id, context)
     )
 
 async def auto_initiative_loop(app):
@@ -390,7 +397,7 @@ async def main():
 
     await app.initialize()
     await app.start()
-    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    await app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
     
     stop_event = asyncio.Event()
     await stop_event.wait()
