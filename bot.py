@@ -1,5 +1,5 @@
 import os
-import requests
+import httpx
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update
@@ -34,7 +34,7 @@ threading.Thread(target=run_dummy_server, daemon=True).start()
 # ==============================
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 # ==============================
 # 📝 ПРОМПТЫ
@@ -84,17 +84,17 @@ FIL_DEFAULT_PROMPT = """
 """
 
 # ==============================
-# 🧠 ЗАПРОС К OPENROUTER
+# 🧠 ЗАПРОС К GROQ (БЕСПЛАТНОМУ)
 # ==============================
 
-def ask_ai(system_prompt: str, user_text: str) -> str:
-    url = "https://openrouter.ai/api/v1/chat/completions"
+async def ask_ai(system_prompt: str, user_text: str) -> str:
+    url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+        "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
     }
     payload = {
-        "model": "deepseek/deepseek-chat",
+        "model": "llama-3.3-70b-versatile",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_text}
@@ -102,12 +102,13 @@ def ask_ai(system_prompt: str, user_text: str) -> str:
         "temperature": 0.7,
         "max_tokens": 100,
     }
-    response = requests.post(url, json=payload, headers=headers, timeout=25)
-    if response.status_code == 200:
-        data = response.json()
-        return data["choices"][0]["message"]["content"].strip()
-    else:
-        return f"Ошибка API: {response.status_code}"
+    async with httpx.AsyncClient(timeout=25.0) as client:
+        response = await client.post(url, json=payload, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            return data["choices"][0]["message"]["content"].strip()
+        else:
+            return f"Ошибка Groq API: {response.status_code}"
 
 # ==============================
 # 📥 ОБРАБОТЧИК СООБЩЕНИЙ
@@ -125,7 +126,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print(f"\n📥 [DEBUG] Сообщение от {chat_id}: {user_text}")
 
     prompt = FIL_LOVE_PROMPT if chat_id == 1257683623 else FIL_DEFAULT_PROMPT
-    answer = ask_ai(prompt, user_text)
+    answer = await ask_ai(prompt, user_text)
 
     if business_conn_id:
         await context.bot.send_message(
@@ -151,5 +152,5 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE, handle_message))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("🚀 Бот запущен в чистом и быстром режиме...")
+    print("🚀 Бот запущен на бесплатном Groq...")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
