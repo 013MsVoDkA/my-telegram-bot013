@@ -24,7 +24,6 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
-# Укажи свой ID прямо сюда или передавай через переменную окружения MY_ADMIN_CHAT_ID
 MY_ADMIN_CHAT_ID = int(os.environ.get("MY_ADMIN_CHAT_ID", 0))
 
 MSK_TZ = timezone(timedelta(hours=3))
@@ -90,7 +89,7 @@ async def ask_ai(system_prompt: str, messages_history: list) -> str:
 
     payload_messages = [{"role": "system", "content": system_prompt}] + messages_history
 
-  payload = {
+    payload = {
         "model": "openrouter/free",
         "messages": payload_messages,
         "temperature": 0.5,
@@ -126,7 +125,7 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
-    """Режет текст строго максимум на 2 осмысленные части, чтобы не было спама"""
+    """Режет текст строго максимум на 2 осмысленные части"""
     clean_text = text.replace('\n', ' ').strip()
     sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
     
