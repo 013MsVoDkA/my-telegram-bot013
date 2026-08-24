@@ -12,7 +12,6 @@ from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
     TypeHandler,
-    Defaults,
 )
 
 # ==============================
@@ -367,6 +366,10 @@ async def auto_initiative_loop(app):
 
         except Exception as e:
             print("❌ Ошибка авто-инициативы:", e)
+
+async def handle_business_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.business_connection:
+        print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
 
 async def amain():
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
