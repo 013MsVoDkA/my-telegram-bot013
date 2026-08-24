@@ -171,8 +171,7 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
-    clean_text = text.replace('—', ' ').replace('–', ' ').replace('
-', ' ').strip()
+    clean_text = text.replace('—', ' ').replace('–', ' ').replace('\n', ' ').strip()
     sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
     if not sentences:
         return [clean_text]
@@ -211,8 +210,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         if not messages:
             return
 
-        combined_text = "
-".join(messages)
+        combined_text = "\n".join(messages)
 
         if chat_id not in CHAT_HISTORY:
             CHAT_HISTORY[chat_id] = []
@@ -281,8 +279,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
     except Exception as e:
-        print("
-❌ ОШИБКА В PROCESS_DELAYED_REPLY:", repr(e))
+        print("\n❌ ОШИБКА В PROCESS_DELAYED_REPLY:", repr(e))
         PENDING_TASKS.pop(chat_id, None)
 
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
