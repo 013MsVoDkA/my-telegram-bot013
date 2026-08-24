@@ -6,6 +6,8 @@ import re
 import json
 import requests
 import httpx
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from datetime import datetime, timezone, timedelta
 from telegram import Update
 from telegram.ext import (
@@ -13,6 +15,27 @@ from telegram.ext import (
     ContextTypes,
     TypeHandler,
 )
+
+# ==============================
+# 🌐 МИНИ-СЕРВЕР ДЛЯ RENDER (ЧТОБЫ НЕ РУГАЛСЯ НА ПОРТ)
+# ==============================
+
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is alive!")
+    def log_message(self, format, *args):
+        pass
+
+def run_dummy_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    server.serve_forever()
+
+# Запускаем сервер в фоновом потоке при старте файла
+threading.Thread(target=run_dummy_server, daemon=True).start()
+
 
 # ==============================
 # 🔑 КЛЮЧИ И НАСТРОЙКИ
@@ -371,29 +394,16 @@ async def handle_business_connection(update: Update, context: ContextTypes.DEFAU
     if update.business_connection:
         print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
 
-async def amain():
-    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-
-    app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
-    app.add_handler(TypeHandler(Update, handle_business), group=-1)
-
-    asyncio.create_task(auto_initiative_loop(app))
-
-    print("🚀 Бот запущен в режиме Поллинга с автосбросом старых сессий...")
-    await app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
-
 if __name__ == "__main__":
     try:
         import sys
         if sys.version_info >= (3, 8) and sys.platform.startswith("win"):
             asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
         
-        # Запускаем через штатный метод библиотеки, он сам всё подтянет без ручного asyncio.run
         app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
         app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
         app.add_handler(TypeHandler(Update, handle_business), group=-1)
 
-        # Фоновая задача авто-инициативы
         async def post_init(application):
             asyncio.create_task(auto_initiative_loop(application))
 
