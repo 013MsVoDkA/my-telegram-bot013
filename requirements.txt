@@ -1,2 +1,4 @@
-python-telegram-bot
-google-genai
+python-telegram-bot>=21.0
+requests
+httpx
+aiohttp
