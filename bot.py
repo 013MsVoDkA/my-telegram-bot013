@@ -78,7 +78,7 @@ FIL_DEFAULT_PROMPT = """
 """
 
 # ==============================
-# 🧠 ЗАПРОС К GROQ (gpt-oss-20b)
+# 🧠 ЗАПРОС К GROQ
 # ==============================
 
 async def ask_ai(system_prompt: str, user_text: str) -> str:
@@ -97,12 +97,15 @@ async def ask_ai(system_prompt: str, user_text: str) -> str:
         "max_tokens": 100,
     }
     async with httpx.AsyncClient(timeout=25.0) as client:
-        response = await client.post(url, json=payload, headers=headers)
-        if response.status_code == 200:
-            data = response.json()
-            return data["choices"][0]["message"]["content"].strip()
-        else:
-            return f"Ошибка Groq API: {response.status_code} - {response.text}"
+        try:
+            response = await client.post(url, json=payload, headers=headers)
+            if response.status_code == 200:
+                data = response.json()
+                return data["choices"][0]["message"]["content"].strip()
+            else:
+                return f"Ошибка Groq API: {response.status_code}"
+        except Exception as e:
+            return f"Ошибка соединения с ИИ: {str(e)}"
 
 # ==============================
 # 📥 ОБРАБОТЧИК СООБЩЕНИЙ
@@ -146,5 +149,5 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE, handle_message))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("🚀 Бот запущен на Groq (openai/gpt-oss-20b)...")
+    print("🚀 Бот запущен на Polling...")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
