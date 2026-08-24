@@ -1,4 +1,5 @@
 import os
+import httpx
 import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update
@@ -8,8 +9,6 @@ from telegram.ext import (
     MessageHandler,
     filters,
 )
-from google import genai
-from google.genai import types
 
 # ==============================
 # 🌐 МИНИ-СЕРВЕР ДЛЯ RENDER
@@ -35,10 +34,7 @@ threading.Thread(target=run_dummy_server, daemon=True).start()
 # ==============================
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
-
-# Инициализация официального клиента Gemini
-client = genai.Client(api_key=GEMINI_API_KEY)
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 
 # ==============================
 # 📝 ПРОМПТЫ
@@ -82,23 +78,31 @@ FIL_DEFAULT_PROMPT = """
 """
 
 # ==============================
-# 🧠 ЗАПРОС К GEMINI
+# 🧠 ЗАПРОС К GROQ (gpt-oss-20b)
 # ==============================
 
 async def ask_ai(system_prompt: str, user_text: str) -> str:
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=user_text,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                temperature=0.7,
-                max_output_tokens=100,
-            ),
-        )
-        return response.text.strip()
-    except Exception as e:
-        return f"Ошибка Gemini API: {str(e)}"
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": "openai/gpt-oss-20b",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_text}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 100,
+    }
+    async with httpx.AsyncClient(timeout=25.0) as client:
+        response = await client.post(url, json=payload, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            return data["choices"][0]["message"]["content"].strip()
+        else:
+            return f"Ошибка Groq API: {response.status_code} - {response.text}"
 
 # ==============================
 # 📥 ОБРАБОТЧИК СООБЩЕНИЙ
@@ -142,5 +146,5 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE, handle_message))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("🚀 Бот запущен на Gemini 2.5 Flash...")
+    print("🚀 Бот запущен на Groq (openai/gpt-oss-20b)...")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
