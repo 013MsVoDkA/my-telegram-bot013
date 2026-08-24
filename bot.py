@@ -91,7 +91,7 @@ async def ask_ai(system_prompt: str, messages_history: list) -> str:
     payload_messages = [{"role": "system", "content": system_prompt}] + messages_history
 
     payload = {
-        "model": "deepseek/deepseek-chat",
+        "model": "google/gemini-2.0-flash-lite-001",
         "messages": payload_messages,
         "temperature": 0.5,
         "max_tokens": 150,
