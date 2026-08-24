@@ -114,7 +114,6 @@ def ask_ai(system_prompt: str, user_text: str) -> str:
 # ==============================
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Ловим и обычные сообщения, и бизнес-сообщения
     msg = update.business_message or update.edited_business_message or update.message
     if not msg or not msg.text:
         return
@@ -125,13 +124,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     print(f"\n📥 [DEBUG] Сообщение от {chat_id}: {user_text}")
 
-    # Выбираем промпт (для твоего ID — любовный, для остальных — дефолтный)
     prompt = FIL_LOVE_PROMPT if chat_id == 1257683623 else FIL_DEFAULT_PROMPT
-
-    # Спрашиваем ИИ
     answer = ask_ai(prompt, user_text)
 
-    # Отправляем ответ моментально
     if business_conn_id:
         await context.bot.send_message(
             chat_id=chat_id,
@@ -153,8 +148,8 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
     
-    # Ловим всё: бизнес-сообщения и обычную личку
-    app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE | filters.CHAT, handle_message))
+    app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE, handle_message))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
     print("🚀 Бот запущен в чистом и быстром режиме...")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
