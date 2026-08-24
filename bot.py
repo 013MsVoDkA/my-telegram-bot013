@@ -78,7 +78,7 @@ FIL_DEFAULT_PROMPT = """
 """
 
 # ==============================
-# 🧠 ЗАПРОС К GROQ (openai/gpt-oss-120b)
+# 🧠 ЗАПРОС К GROQ
 # ==============================
 
 async def ask_ai(system_prompt: str, user_text: str) -> str:
@@ -88,7 +88,7 @@ async def ask_ai(system_prompt: str, user_text: str) -> str:
         "Content-Type": "application/json",
     }
     payload = {
-        "model": "openai/gpt-oss-120b",
+        "model": "llama-3.1-8b-instant",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_text}
@@ -104,7 +104,7 @@ async def ask_ai(system_prompt: str, user_text: str) -> str:
                 content = data["choices"][0]["message"].get("content")
                 if content:
                     return content.strip()
-                return "..."
+                return "Чего?"
             else:
                 return f"Ошибка Groq API: {response.status_code} - {response.text}"
         except Exception as e:
@@ -152,5 +152,5 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE, handle_message))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("🚀 Бот запущен на Groq (openai/gpt-oss-120b)...")
+    print("🚀 Бот запущен и готов отвечать!")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
