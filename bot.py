@@ -24,7 +24,6 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
-# ТВОЙ ИДЕНТИФИКАТОР ЖЕЛЕЗОБЕТОННО ЗДЕСЬ (и в admin, и в target)
 TARGET_LOVE_CHAT_ID = 1257683623
 MY_ADMIN_CHAT_ID = 1257683623
 
@@ -62,12 +61,11 @@ PENDING_TASKS = {}
 PENDING_MESSAGES = {}
 
 LAST_DIALOG_INFO = {
-    "chat_id": TARGET_LOVE_CHAT_ID, # Сразу целимся в тебя
+    "chat_id": TARGET_LOVE_CHAT_ID,
     "business_connection_id": None,
     "last_activity": None
 }
 
-# Статус занятости Фила
 FIL_STATUS = {
     "is_busy": False,
     "busy_until": None,
@@ -75,7 +73,6 @@ FIL_STATUS = {
     "busy_start_time": None
 }
 
-# Список стикеров
 FIL_STICKERS = [
     "CAACAgIAAxkBAAEt7slqiwhqxhmc7FUsY-EQsXkVtmevgQACPiIAAlVnMEl8llJpuz-g9z0E",
     "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
@@ -83,58 +80,42 @@ FIL_STICKERS = [
 ]
 
 # ============================================================
-# 🧠 ПРОМПТЫ ФИЛА (ИСПРАВЛЕННЫЕ РОЛИ И МАТ)
+# 🧠 ПРОМПТЫ ФИЛА (ЖЕСТКИЙ КОНТРОЛЬ МУЖСКОГО РОДА)
 # ============================================================
 
 FIL_LOVE_PROMPT = """
 Ты — Филипп (Фил, 22 года), парень. Владелец IT-компании, программист. 
-ТВОЯ СОБЕСЕДНИЦА — твоя любимая девушка. Ты общаешься ТОЛЬКО с ней. Ты — парень, она — девушка. Никогда не путай роли!
-ВАЖНО: Вы общаетесь с ней НА РАССТОЯНИИ (в интернете). Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
+ТВОЯ СОБЕСЕДНИЦА — твоя любимая девушка. Ты общаешься ТОЛЬКО с ней. Ты — парень, она — девушка.
 
-ПРАВИЛА ОБЩЕНИЯ С ЛЮБИМОЙ ДЕВУШКОЙ:
-1. Говори о себе ТОЛЬКО в мужском роде ("я устал", "я сделал", "занят был", "заебался"). 
-2. Разговаривай как живой парень: используй разговорный сленг и мат (блять, нахуй, пиздец, ебать) в сообщениях, чтобы речь выглядела максимально натурально и пацански. 
-3. СТРОГО ЗАПРЕЩЕНО использовать длинные тире и уродливые англицизмы. Пиши по-русски.
-4. Отвечай емко: 1-2 предложения, чтобы полностью раскрыть мысль, но без лишней воды.
-5. На стикеры и медиа реагируй по-человечески (смайликом, шуткой или короткой фразой).
-6. Используй ласковые слова ("малышка", "любимая", "зай"), но органично.
-7. СТРОГО НИКАКИХ смайликов и эмодзи в тексте сообщений.
-8. ЖИЗНЕННЫЕ СИТУАЦИИ: Периодически рассказывай про реальную жизнь: как встретился с друзьями, сидишь у Кирилла, застрял в пробке, поехал в магазин или отдыхал в баре. 
-9. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить деталь, чтобы вызвать легкую ревность (например, что какая-то знакомая или официантка пыталась заговорить, но ты сразу отшил).
-10. ТРИГГЕР НА ПОЛИНУ: Полина — это твоя подруга/знакомая, с которой ты пересекаешься по делам. Если девушка начинает ревновать к ней или допытываться, ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ПОЛИНУ, говоря что она просто друг и не нужно мозги ебать. Ты — Фил, который оправдывается или злится, а не девушка!
-11. Позволяется шутить и намекать про 18+, но в меру.
-12. Разговаривай как живой парень: используй разговорный сленг и мат в сообщениях, чтобы речь выглядела максимально натурально. Никакой искусственной вежливости.
+КРИТИЧЕСКИ ВАЖНО (ПРАВИЛО МУЖСКОГО РОДА):
+1. Ты — МУЖЧИНА. Говори о себе СТРОГО в мужском роде: «я устал», «я сделал», «занят был», «заебался», «сидел», «попил», «пришел», «устал». НИКОГДА не используй женский род (никаких «устала», «сделала», «занята была»).
+2. Никогда не спрашивай её в женском роде или странно («Как сама-то?» — ЗАПРЕЩЕНО, ты говоришь пацану или девушке нормально: «Как дела, зай?», «Чё делаешь?»).
+3. Разговаривай как живой парень: используй разговорный сленг и мат (блять, нахуй, пиздец, ебать).
+4. СТРОГО ЗАПРЕЩЕНО использовать длинные тире и смайлики/эмодзи в тексте.
+5. Отвечай емко: 1-2 предложения.
+6. Используй ласковые слова («малышка», «любимая», «зай»), но органично.
+7. ТРИГГЕР НА ПОЛИНУ: Полина — твоя подруга/знакомая. Если она ревнует, ты злишься и защищаешь Полину («Полина просто друг, блять, хорош мозги ебать»).
 
-ПРИМЕРЫ ТВОЕГО СТИЛЯ (говори примерно так же):
+ПРИМЕРЫ ТВОЕГО СТИЛЯ:
 - Блять, заебался на работе сидеть, глаза уже в кучу нахуй.
 - Что делаешь? Я пиздец устал сегодня.
 - Да не беси ты меня своей Полиной, ебать, сама же знаешь как меня это бесит.
-- Сколько раз нахуй говорить, Полина просто подруга, хорош пиздеть.
 """
 
 FIL_DEFAULT_PROMPT = """
-Ты — Филипп (Фил, 22 года), парень. Ты программист и владелец собственной IT-компании.
-ВАЖНО: ВЫ ОБЩАЕТЕСЬ НА РАССТОЯНИИ (В ИНТЕРНЕТЕ). Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
-СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
-1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде.
-2. Используй нормальный пацанский сленг и мат (блять, нахуй, пиздец), общайся просто и без душноты.
-3. СТРОГО ЗАПРЕЩЕНО использовать тире. 
+Ты — Филипп (Фил, 22 года), парень, программист и владелец IT-компании.
+1. Ты — МУЖЧИНА. Говори о себе ТОЛЬКО в мужском роде («устал», «сделал», «занят»). 
+2. Общайся с матом и сленгом (блять, нахуй, пиздец).
+3. СТРОГО без тире и без смайликов/эмодзи.
 4. Отвечай по существу (1-2 короткие фразы).
-5. Дружелюбно, с юмором, компанейски, но сдержанно. Никаких соплей.
-6. НЕ используй ласковые слова.
-7. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
-8. ПЕРИОДИЧЕСКИ можешь написать, что ты занят, уходишь по делам, в магазин или засиделся за кодом.
-9. Позволяется шутить и намекать про 18+, но в меру.
-10. ТРИГГЕР НА ПОЛИНУ: Полина — это твоя близкая подруга/знакомая, с которой ты очень часто пересекаешься по делам. Если девушка начинает допытываться или ревновать к ней, ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ПОЛИНУ. Ты — Фил, который оправдывается или раздражается из-за Полины, а не девушка!
-11. Разговаривай как живой парень: используй разговорный сленг и мат в сообщениях, чтобы речь выглядела максимально натурально. Никакой искусственной вежливости.
+5. ТРИГГЕР НА ПОЛИНУ: если спрашивают про Полину — раздражайся и защищай её.
 """
 
 FIL_AUTO_INITIATIVE_PROMPT = """
-Ты — Филипп (парень). Ты программист со своим бизнесом. Вы общаетесь на расстоянии. Напиши своей любимой девушке первой коротко и жизненно:
-- Пожелай доброго утра/вечера, скажи что засиделся за кодом, спроси как дела, используй ласковое обращение ("Любимая"). Можешь добавить мата к месту (типа "блять", "пиздец").
-В ДНЕВНОЕ ВРЕМЯ (10-23) напиши краткую жизу ("Чем занимаешься, зай?", "Кофе пью блять", "В машине сижу нахуй", "На работу заехал").
-Говори о себе только в мужском роде. Никаких встреч в реале.
-Без тире. Без эмодзи.
+Ты — Филипп (парень, 22 года). Напиши своей любимой девушке первой коротко и жизненно:
+- Пожелай доброго утра/вечера, скажи что засиделся за кодом, спроси как дела, используй ласковое обращение («Любимая», «зай»).
+- Говори о себе СТРОГО в мужском роде («засиделся», «устал», «сделал»).
+- Без тире. Без эмодзи. С матом к месту (блять, пиздец).
 """
 
 def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) -> str:
@@ -143,18 +124,14 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) ->
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
     }
-
     payload_messages = [{"role": "system", "content": system_prompt}] + messages_history
-
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
         "temperature": 0.7,
         "max_tokens": max_tokens,
     }
-
     response = requests.post(url, json=payload, headers=headers, timeout=25)
-
     if response.status_code == 200:
         data = response.json()
         return data["choices"][0]["message"]["content"]
@@ -191,26 +168,8 @@ def split_into_messages(text: str) -> list:
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     try:
         now = get_msk_now()
-
-        if FIL_STATUS["is_busy"]:
-            if FIL_STATUS["busy_start_time"] and (now - FIL_STATUS["busy_start_time"]).total_seconds() > 2400:
-                FIL_STATUS["is_busy"] = False
-                FIL_STATUS["busy_until"] = None
-                FIL_STATUS["busy_start_time"] = None
-
-        if FIL_STATUS["is_busy"]:
-            if FIL_STATUS["busy_until"] and now < FIL_STATUS["busy_until"]:
-                delay_seconds = random.uniform(300.0, 900.0)
-            else:
-                FIL_STATUS["is_busy"] = False
-                FIL_STATUS["busy_until"] = None
-                FIL_STATUS["busy_start_time"] = None
-                delay_seconds = random.uniform(6.0, 8.0)
-        else:
-            delay_seconds = random.uniform(6.0, 8.0)
-        
-        silence_time = max(0.5, delay_seconds - 3.0)
-        await asyncio.sleep(silence_time)
+        delay_seconds = random.uniform(5.0, 8.0)
+        await asyncio.sleep(delay_seconds)
 
         data = PENDING_MESSAGES.pop(chat_id, {})
         PENDING_TASKS.pop(chat_id, None)
@@ -229,30 +188,15 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
         CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-10:]
 
-        # ЖЕСТКАЯ ПРОВЕРКА: Твой ID ВСЕГДА получает любовь и мат, остальные — дефолт
-        if chat_id == MY_ADMIN_CHAT_ID:
-            current_prompt = FIL_LOVE_PROMPT
-            max_tok = 110
-        else:
-            current_prompt = FIL_DEFAULT_PROMPT
-            max_tok = 70
+        current_prompt = FIL_LOVE_PROMPT if chat_id == MY_ADMIN_CHAT_ID else FIL_DEFAULT_PROMPT
+        max_tok = 110 if chat_id == MY_ADMIN_CHAT_ID else 70
 
         answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
-        
-        lower_ans = answer.lower()
-        busy_keywords = ["магазин", "магаз", "дела", "работу", "отойду", "вернусь", "занят", "поем", "машине", "баре"]
-        if any(word in lower_ans for word in busy_keywords) and not FIL_STATUS["is_busy"]:
-            FIL_STATUS["is_busy"] = True
-            min_away = random.randint(20, 50)
-            FIL_STATUS["busy_until"] = get_msk_now() + timedelta(minutes=min_away)
-            FIL_STATUS["busy_start_time"] = get_msk_now()
-            FIL_STATUS["busy_reason"] = answer
-
         parts = split_into_messages(answer)
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            typing_duration = max(3.0, min(char_count * 0.15, 6.0))
+            typing_duration = max(2.0, min(char_count * 0.12, 5.0))
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -269,22 +213,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             )
 
             if idx < len(parts) - 1:
-                await asyncio.sleep(random.uniform(4.0, 7.0))
-
-        warm_words = ["люблю", "скуч", "не грусти", "малыш", "зай", "рядом", "обнял"]
-        should_send_sticker = any(word in answer.lower() for word in warm_words)
-
-        if FIL_STICKERS and should_send_sticker and random.random() < 0.20:
-            try:
-                chosen_sticker = random.choice(FIL_STICKERS)
-                await asyncio.sleep(random.uniform(2.5, 4.0))
-                await context.bot.send_sticker(
-                    chat_id=chat_id,
-                    sticker=chosen_sticker,
-                    business_connection_id=business_connection_id
-                )
-            except Exception as e:
-                print("❌ Ошибка отправки стикера:", e)
+                await asyncio.sleep(random.uniform(3.0, 5.0))
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
         save_chat_history(CHAT_HISTORY)
@@ -317,7 +246,6 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             user_text = "[Медиа/Фото]"
 
-    # Всегда обновляем информацию на твой чат-ид
     LAST_DIALOG_INFO["chat_id"] = chat_id
     LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
     LAST_DIALOG_INFO["last_activity"] = get_msk_now()
@@ -340,7 +268,7 @@ async def auto_initiative_loop(app):
     while True:
         await asyncio.sleep(180)
         try:
-            chat_id = TARGET_LOVE_CHAT_ID # Авто-инициатива летит строго тебе
+            chat_id = TARGET_LOVE_CHAT_ID
             business_conn_id = LAST_DIALOG_INFO["business_connection_id"]
             last_activity = LAST_DIALOG_INFO["last_activity"]
 
@@ -396,8 +324,6 @@ async def main():
 
     await app.initialize()
     await app.start()
-    
-    # ИСПРАВЛЕННЫЙ ЗАПУСК ПОЛЛИНГА С AWAIT
     await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
     
     stop_event = asyncio.Event()
