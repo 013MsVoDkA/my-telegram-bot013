@@ -89,8 +89,8 @@ async def ask_ai(system_prompt: str, messages_history: list) -> str:
 
     payload_messages = [{"role": "system", "content": system_prompt}] + messages_history
 
-   payload = {
-        "model": "google/gemini-2.0-flash-exp:free", # или "openrouter/free"
+    payload = {
+        "model": "meta-llama/llama-3.3-70b-instruct:free",
         "messages": payload_messages,
         "temperature": 0.5,
         "max_tokens": 150,
@@ -125,7 +125,6 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
-    """Режет текст строго максимум на 2 осмысленные части"""
     clean_text = text.replace('\n', ' ').strip()
     sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
     
