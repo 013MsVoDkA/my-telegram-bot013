@@ -78,7 +78,7 @@ FIL_DEFAULT_PROMPT = """
 """
 
 # ==============================
-# 🧠 ЗАПРОС К GROQ
+# 🧠 ЗАПРОС К GROQ (openai/gpt-oss-120b)
 # ==============================
 
 async def ask_ai(system_prompt: str, user_text: str) -> str:
@@ -88,7 +88,7 @@ async def ask_ai(system_prompt: str, user_text: str) -> str:
         "Content-Type": "application/json",
     }
     payload = {
-        "model": "openai/gpt-oss-20b",
+        "model": "openai/gpt-oss-120b",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_text}
@@ -101,9 +101,12 @@ async def ask_ai(system_prompt: str, user_text: str) -> str:
             response = await client.post(url, json=payload, headers=headers)
             if response.status_code == 200:
                 data = response.json()
-                return data["choices"][0]["message"]["content"].strip()
+                content = data["choices"][0]["message"].get("content")
+                if content:
+                    return content.strip()
+                return "..."
             else:
-                return f"Ошибка Groq API: {response.status_code}"
+                return f"Ошибка Groq API: {response.status_code} - {response.text}"
         except Exception as e:
             return f"Ошибка соединения с ИИ: {str(e)}"
 
@@ -149,5 +152,5 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE, handle_message))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("🚀 Бот запущен на Polling...")
+    print("🚀 Бот запущен на Groq (openai/gpt-oss-120b)...")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
