@@ -10,10 +10,6 @@ from telegram.ext import (
     filters,
 )
 
-# ==============================
-# 🌐 МИНИ-СЕРВЕР ДЛЯ RENDER
-# ==============================
-
 class HealthCheckHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -29,16 +25,8 @@ def run_dummy_server():
 
 threading.Thread(target=run_dummy_server, daemon=True).start()
 
-# ==============================
-# 🔑 КЛЮЧИ И НАСТРОЙКИ
-# ==============================
-
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-
-# ==============================
-# 📝 ПРОМПТЫ
-# ==============================
 
 FIL_LOVE_PROMPT = """
 Ты — Филипп (Фил, 22 года), парень. Владелец IT-компании, программист. 
@@ -77,10 +65,6 @@ FIL_DEFAULT_PROMPT = """
 11. Разговаривай как живой парень: используй разговорный сленг и мат в сообщениях, чтобы речь выглядела максимально натурально. Никакой искусственной вежливости.
 """
 
-# ==============================
-# 🧠 ЗАПРОС К GROQ
-# ==============================
-
 async def ask_ai(system_prompt: str, user_text: str) -> str:
     url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
@@ -88,7 +72,7 @@ async def ask_ai(system_prompt: str, user_text: str) -> str:
         "Content-Type": "application/json",
     }
     payload = {
-        "model": "llama-3.1-8b-instant",
+        "model": "llama3-70b-8192",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_text}
@@ -109,10 +93,6 @@ async def ask_ai(system_prompt: str, user_text: str) -> str:
                 return f"Ошибка Groq API: {response.status_code} - {response.text}"
         except Exception as e:
             return f"Ошибка соединения с ИИ: {str(e)}"
-
-# ==============================
-# 📥 ОБРАБОТЧИК СООБЩЕНИЙ
-# ==============================
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.business_message or update.edited_business_message or update.message
@@ -141,10 +121,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=answer,
             reply_to_message_id=msg.message_id
         )
-
-# ==============================
-# 🚀 ЗАПУСК
-# ==============================
 
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
