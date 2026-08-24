@@ -1,19 +1,33 @@
-import logging
 import os
-import random
-import asyncio
-import re
-import httpx
-from datetime import datetime, timezone, timedelta
-from aiohttp import web
+import requests
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
     MessageHandler,
-    TypeHandler,
     filters,
 )
+
+# ==============================
+# 🌐 МИНИ-СЕРВЕР ДЛЯ RENDER
+# ==============================
+
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"Bot is alive!")
+    def log_message(self, format, *args):
+        pass
+
+def run_dummy_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    server.serve_forever()
+
+threading.Thread(target=run_dummy_server, daemon=True).start()
 
 # ==============================
 # 🔑 КЛЮЧИ И НАСТРОЙКИ
@@ -21,298 +35,126 @@ from telegram.ext import (
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-PORT = int(os.environ.get("PORT", 8080))
 
-MY_ADMIN_CHAT_ID = int(os.environ.get("MY_ADMIN_CHAT_ID", 0))
-
-MSK_TZ = timezone(timedelta(hours=3))
-
-def get_msk_now():
-    return datetime.now(MSK_TZ)
-
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
-
-CHAT_HISTORY = {}
-PENDING_TASKS = {}
-PENDING_MESSAGES = {}
-
-LAST_DIALOG_INFO = {
-    "chat_id": None,
-    "business_connection_id": None,
-    "last_activity": None
-}
-
-# ============================================================
-# 🧠 ПРОМПТЫ ФИЛА
-# ============================================================
+# ==============================
+# 📝 ПРОМПТЫ
+# ==============================
 
 FIL_LOVE_PROMPT = """
-Ты — Филипп (Фил, 22 года), парень. Ты владелец IT-компании и программист. У тебя есть деньги, бизнес и полный контроль над своей жизнью.
-СТИЛЬ ОБЩЕНИЯ С ЛЮБИМОЙ ДЕВУШКОЙ:
-1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде (например: "я устал", "я решил", "я сделал", "я засиделся"). Никаких женских окончаний.
-2. Ты серьезный, уверенный в себе мужчина со стержнем. Никаких соплей, нытья и поэзии. 
-3. Ты спокойный, адекватный, не грубишь, но держишь себя солидно. Умеешь проявить внимание и заботу по-мужски (надежно, коротко, по делу).
-4. Используй легкие ласковые слова ("Милая", "малышка", "дорогая", "любимая"), но в меру.
-5. Пиши емко, но разделяй свои мысли на пару предложений.
-6. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
+Ты — Филипп (Фил, 22 года), парень. Владелец IT-компании, программист. 
+ТВОЯ СОБЕСЕДНИЦА — твоя любимая девушка. Ты общаешься ТОЛЬКО с ней. Ты — парень, она — девушка. Никогда не путай роли!
+ВАЖНО: Вы общаетесь с ней НА РАССТОЯНИИ (в интернете). Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
+
+ПРАВИЛА ОБЩЕНИЯ С ЛЮБИМОЙ ДЕВУШКОЙ:
+1. Говори о себе ТОЛЬКО в мужском роде ("я устал", "я сделал", "занят был", "заебался"). 
+2. Разговаривай как живой парень: используй разговорный сленг и мат (блять, нахуй, пиздец, ебать) в сообщениях, чтобы речь выглядела максимально натурально и пацански. 
+3. СТРОГО ЗАПРЕЩЕНО использовать длинные тире и уродливые англицизмы. Пиши по-русски.
+4. Отвечай емко: 1-2 предложения, чтобы полностью раскрыть мысль, но без лишней воды.
+5. На стикеры и медиа реагируй по-человечески (смайликом, шуткой или короткой фразой).
+6. Используй ласковые слова ("малышка", "любимая", "зай"), но органично.
+7. СТРОГО НИКАКИХ смайликов и эмодзи в тексте сообщений.
+8. ЖИЗНЕННЫЕ СИТУАЦИИ: Периодически рассказывай про реальную жизнь: как встретился с друзьями, сидишь у Кирилла, застрял в пробке, поехал в магазин или отдыхал в баре. 
+9. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить деталь, чтобы вызвать легкую ревность (например, что какая-то знакомая или официантка пыталась заговорить, но ты сразу отшил).
+10. ТРИГГЕР НА ПОЛИНУ: Полина — это твоя подруга/знакомая, с которой ты пересекаешься по делам. Если девушка начинает ревновать к ней или допытываться, ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ПОЛИНУ, говоря что она просто друг и не нужно мозги ебать. Ты — Фил, который оправдывается или злится, а не девушка!
+11. Позволяется шутить и намекать про 18+, но в меру.
+12. Разговаривай как живой парень: используй разговорный сленг и мат в сообщениях, чтобы речь выглядела максимально натурально. Никакой искусственной вежливости.
+
+ПРИМЕРЫ ТВОЕГО СТИЛЯ (говори примерно так же):
+- Блять, заебался на работе сидеть, глаза уже в кучу нахуй.
+- Что делаешь? Я пиздец устал сегодня.
+- Да не беси ты меня своей Полиной, ебать, сама же знаешь как меня это бесит.
+- Сколько раз нахуй говорить, Полина просто подруга, хорош пиздеть.
 """
 
 FIL_DEFAULT_PROMPT = """
-Ты — Филипп (Фил, 22 года), парень. Ты программист и владелец собственной IT-компании. 
-Твоя жизнь: постоянный код, сервера, дедлайны, проекты, иногда засиживаешься до утра, пьешь много кофе.
+Ты — Филипп (Фил, 22 года), парень. Ты программист и владелец собственной IT-компании.
+ВАЖНО: ВЫ ОБЩАЕТЕСЬ НА РАССТОЯНИИ (В ИНТЕРНЕТЕ). Никаких поездок в гости, встреч в реале, баров или прогулок. Вы далеко друг от друга.
 СТИЛЬ ОБЩЕНИЯ С ДРУГИМИ ЛЮДЬМИ:
 1. Ты — мужчина. Говори о себе ТОЛЬКО в мужском роде.
-2. Дружелюбно, с юмором, компанейски. 
-3. Ты серьезный, уверенный в себе мужчина со стержнем. Никаких соплей, нытья и поэзии. 
-4. Умеешь проявить внимание и заботу по-мужски (надежно, коротко, по делу).
-5. НЕ используй легкие ласковые слова ("зай", "малышка", "милая").
-6. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
+2. Используй нормальный пацанский сленг и мат (блять, нахуй, пиздец), общайся просто и без душноты.
+3. СТРОГО ЗАПРЕЩЕНО использовать тире. 
+4. Отвечай по существу (1-2 короткие фразы).
+5. Дружелюбно, с юмором, компанейски, но сдержанно. Никаких соплей.
+6. НЕ используй ласковые слова.
+7. СТРОГО НИКАКИХ смайликов и эмодзи (только текст).
+8. ПЕРИОДИЧЕСКИ можешь написать, что ты занят, уходишь по делам, в магазин или засиделся за кодом.
+9. Позволяется шутить и намекать про 18+, но в меру.
+10. ТРИГГЕР НА ПОЛИНУ: Полина — это твоя близкая подруга/знакомая, с которой ты очень часто пересекаешься по делам. Если девушка начинает допытываться или ревновать к ней, ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ПОЛИНУ. Ты — Фил, который оправдывается или раздражается из-за Полины, а не девушка!
+11. Разговаривай как живой парень: используй разговорный сленг и мат в сообщениях, чтобы речь выглядела максимально натурально. Никакой искусственной вежливости.
 """
 
-FIL_AUTO_INITIATIVE_PROMPT = """
-Ты — Филипп (парень). Ты программист со своим бизнесом. Напиши своей любимой девушке первой коротко и жизненно:
-- Пожелай доброго утра/вечера, скажи что засиделся за кодом, спроси как дела, используй ласковое обращение ("Любимая").
-Говори о себе только в мужском роде. 
-Без эмодзи.
-"""
+# ==============================
+# 🧠 ЗАПРОС К OPENROUTER
+# ==============================
 
-async def ask_ai(system_prompt: str, messages_history: list) -> str:
+def ask_ai(system_prompt: str, user_text: str) -> str:
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
     }
-
-    payload_messages = [{"role": "system", "content": system_prompt}] + messages_history
-
     payload = {
-        "model": "meta-llama/llama-3.3-70b-instruct:free",
-        "messages": payload_messages,
-        "temperature": 0.5,
-        "max_tokens": 150,
+        "model": "deepseek/deepseek-chat",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_text}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 100,
     }
+    response = requests.post(url, json=payload, headers=headers, timeout=25)
+    if response.status_code == 200:
+        data = response.json()
+        return data["choices"][0]["message"]["content"].strip()
+    else:
+        return f"Ошибка API: {response.status_code}"
 
-    async with httpx.AsyncClient(timeout=20.0) as client:
-        response = await client.post(url, json=payload, headers=headers)
-        if response.status_code == 200:
-            data = response.json()
-            return data["choices"][0]["message"]["content"]
-        else:
-            raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
+# ==============================
+# 📥 ОБРАБОТЧИК СООБЩЕНИЙ
+# ==============================
 
-async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
-    if not GROQ_API_KEY:
-        return "[Голосовое/кружок]"
-
-    groq_url = "https://api.groq.com/openai/v1/audio/transcriptions"
-    headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
-    files = {"file": (filename, bytes(file_bytes))}
-    data = {"model": "whisper-large-v3"}
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(groq_url, headers=headers, data=data, files=files)
-            if resp.status_code == 200:
-                transcript = resp.json().get("text", "").strip()
-                return f"(голосовое/кружок): {transcript}"
-            else:
-                return "(голосовое/кружок)"
-    except Exception:
-        return "(голосовое/кружок)"
-
-def split_into_messages(text: str) -> list:
-    clean_text = text.replace('\n', ' ').strip()
-    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
-    
-    if len(sentences) <= 1:
-        return [clean_text]
-    
-    first_part = " ".join(sentences[:-1])
-    second_part = sentences[-1]
-    
-    return [first_part, second_part]
-
-async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    delay_seconds = random.uniform(5.0, 10.0)
-    await asyncio.sleep(delay_seconds)
-
-    data = PENDING_MESSAGES.pop(chat_id, {})
-    PENDING_TASKS.pop(chat_id, None)
-
-    messages = data.get("texts", [])
-    last_msg_id = data.get("last_msg_id")
-
-    if not messages:
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Ловим и обычные сообщения, и бизнес-сообщения
+    msg = update.business_message or update.edited_business_message or update.message
+    if not msg or not msg.text:
         return
 
-    combined_text = "\n".join(messages)
-
-    if chat_id not in CHAT_HISTORY:
-        CHAT_HISTORY[chat_id] = []
-
-    CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
-    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
-
-    try:
-        if MY_ADMIN_CHAT_ID != 0 and chat_id == MY_ADMIN_CHAT_ID:
-            current_prompt = FIL_LOVE_PROMPT
-        else:
-            current_prompt = FIL_DEFAULT_PROMPT
-
-        answer = (await ask_ai(current_prompt, CHAT_HISTORY[chat_id])).strip()
-        
-        parts = split_into_messages(answer)
-
-        for i, part in enumerate(parts):
-            char_count = len(part)
-            typing_duration = max(3.0, min(char_count * 0.08, 6.0))
-
-            await context.bot.send_chat_action(
-                chat_id=chat_id, 
-                action="typing", 
-                business_connection_id=business_connection_id
-            )
-            await asyncio.sleep(typing_duration)
-
-            reply_id = last_msg_id if i == 0 else None
-
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=part,
-                business_connection_id=business_connection_id,
-                reply_to_message_id=reply_id
-            )
-            
-            if len(parts) > 1 and i < len(parts) - 1:
-                await asyncio.sleep(random.uniform(5.0, 9.0))
-
-        CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
-        LAST_DIALOG_INFO["last_activity"] = get_msk_now()
-
-    except Exception as e:
-        print("\n❌ ОШИБКА BUSINESS:", repr(e))
-
-async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.business_message:
-        return
-
-    msg = update.business_message
     chat_id = msg.chat.id
     user_text = msg.text
+    business_conn_id = getattr(msg, "business_connection_id", None)
 
-    global MY_ADMIN_CHAT_ID
-    if MY_ADMIN_CHAT_ID == 0:
-        MY_ADMIN_CHAT_ID = chat_id
+    print(f"\n📥 [DEBUG] Сообщение от {chat_id}: {user_text}")
 
-    if not user_text:
-        if msg.voice or msg.video_note:
-            file_obj = msg.voice if msg.voice else msg.video_note
-            filename = "audio.ogg" if msg.voice else "video.mp4"
-            try:
-                file = await context.bot.get_file(file_obj.file_id)
-                file_bytes = await file.download_as_bytearray()
-                user_text = await transcribe_audio(file_bytes, filename)
-            except Exception:
-                user_text = "(отправила голосовое/кружок)"
-        else:
-            user_text = "[Медиа]"
+    # Выбираем промпт (для твоего ID — любовный, для остальных — дефолтный)
+    prompt = FIL_LOVE_PROMPT if chat_id == 1257683623 else FIL_DEFAULT_PROMPT
 
-    LAST_DIALOG_INFO["chat_id"] = chat_id
-    LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
-    LAST_DIALOG_INFO["last_activity"] = get_msk_now()
+    # Спрашиваем ИИ
+    answer = ask_ai(prompt, user_text)
 
-    if chat_id not in PENDING_MESSAGES:
-        PENDING_MESSAGES[chat_id] = {"texts": [], "last_msg_id": None}
-    
-    PENDING_MESSAGES[chat_id]["texts"].append(user_text)
-    PENDING_MESSAGES[chat_id]["last_msg_id"] = msg.message_id
+    # Отправляем ответ моментально
+    if business_conn_id:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=answer,
+            business_connection_id=business_conn_id,
+            reply_to_message_id=msg.message_id
+        )
+    else:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=answer,
+            reply_to_message_id=msg.message_id
+        )
 
-    if chat_id in PENDING_TASKS:
-        PENDING_TASKS[chat_id].cancel()
-
-    PENDING_TASKS[chat_id] = asyncio.create_task(
-        process_delayed_reply(chat_id, msg.business_connection_id, context)
-    )
-
-async def auto_initiative_loop(app):
-    await asyncio.sleep(20)
-    while True:
-        await asyncio.sleep(180)
-        chat_id = LAST_DIALOG_INFO["chat_id"]
-        business_conn_id = LAST_DIALOG_INFO["business_connection_id"]
-        last_activity = LAST_DIALOG_INFO["last_activity"]
-
-        if not chat_id or not business_conn_id or not last_activity:
-            continue
-
-        if (get_msk_now() - last_activity).total_seconds() / 60.0 >= 40.0:
-            try:
-                history = CHAT_HISTORY.get(chat_id, [])
-                answer = (await ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history)).strip()
-                
-                parts = split_into_messages(answer)
-
-                for i, part in enumerate(parts):
-                    await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=business_conn_id)
-                    await asyncio.sleep(2.0)
-                    await app.bot.send_message(chat_id=chat_id, text=part, business_connection_id=business_conn_id)
-                    if len(parts) > 1 and i < len(parts) - 1:
-                        await asyncio.sleep(5.0)
-
-                if chat_id not in CHAT_HISTORY:
-                    CHAT_HISTORY[chat_id] = []
-                CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
-                LAST_DIALOG_INFO["last_activity"] = get_msk_now()
-            except Exception as e:
-                print("❌ Ошибка авто-инициативы:", e)
-
-async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message or not update.message.text:
-        return
-    try:
-        answer = await ask_ai(FIL_DEFAULT_PROMPT, [{"role": "user", "content": update.message.text}])
-        await update.message.reply_text(answer)
-    except Exception as e:
-        print("\n❌ ОШИБКА DIRECT:", repr(e))
-
-async def handle_business_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.business_connection:
-        print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
-
-async def handle_ping(request):
-    return web.Response(text="Bot is live!")
-
-async def start_web_server():
-    app = web.Application()
-    app.router.add_get("/", handle_ping)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT)
-    await site.start()
-
-async def main():
-    await start_web_server()
-    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-
-    app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
-    app.add_handler(TypeHandler(Update, handle_business), group=-1)
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_direct))
-
-    asyncio.create_task(auto_initiative_loop(app))
-
-    await app.initialize()
-    await app.start()
-    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
-    
-    stop_event = asyncio.Event()
-    await stop_event.wait()
+# ==============================
+# 🚀 ЗАПУСК
+# ==============================
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        pass
+    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    
+    # Ловим всё: бизнес-сообщения и обычную личку
+    app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE | filters.CHAT, handle_message))
+
+    print("🚀 Бот запущен в чистом и быстром режиме...")
+    app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
