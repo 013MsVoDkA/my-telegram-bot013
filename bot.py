@@ -87,8 +87,8 @@ async def ask_ai(system_prompt: str, user_text: str) -> str:
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
     }
-    payload = {
-        "model": "llama-3.3-70b-versatile",
+   payload = {
+        "model": "openai/gpt-oss-20b",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_text}
