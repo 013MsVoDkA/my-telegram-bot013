@@ -88,13 +88,13 @@ async def ask_ai(system_prompt: str, user_text: str) -> str:
         "Content-Type": "application/json",
     }
     payload = {
-        "model": "llama-3.1-8b-instant",
+        "model": "llama-3.3-70b-versatile",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_text}
         ],
         "temperature": 0.7,
-        "max_tokens": 100,
+        "max_tokens": 150,
     }
     async with httpx.AsyncClient(timeout=25.0) as client:
         try:
@@ -152,5 +152,5 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE, handle_message))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("🚀 Бот запущен и готов отвечать!")
+    print("🚀 Бот запущен на Groq (llama-3.3-70b-versatile)...")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
