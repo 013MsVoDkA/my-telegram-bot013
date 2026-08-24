@@ -394,11 +394,12 @@ async def main():
 
     await app.initialize()
     await app.start()
-    await app.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+    
+    # drop_pending_updates=True сбрасывает старый конфликтный getUpdates при перезапуске!
+    await app.updater.start_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
     
     stop_event = asyncio.Event()
     await stop_event.wait()
-
 if __name__ == "__main__":
     try:
         asyncio.run(main())
