@@ -3,7 +3,6 @@ import os
 import random
 import asyncio
 import re
-import requests
 import httpx
 from datetime import datetime, timezone, timedelta
 from aiohttp import web
@@ -25,6 +24,9 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
+# Укажи свой ID прямо сюда или передавай через переменную окружения MY_ADMIN_CHAT_ID
+MY_ADMIN_CHAT_ID = int(os.environ.get("MY_ADMIN_CHAT_ID", 0))
+
 MSK_TZ = timezone(timedelta(hours=3))
 
 def get_msk_now():
@@ -44,8 +46,6 @@ LAST_DIALOG_INFO = {
     "business_connection_id": None,
     "last_activity": None
 }
-
-MY_ADMIN_CHAT_ID = 0  # Твой ID зафиксируется автоматически
 
 # ============================================================
 # 🧠 ПРОМПТЫ ФИЛА
@@ -81,7 +81,7 @@ FIL_AUTO_INITIATIVE_PROMPT = """
 Без эмодзи.
 """
 
-def ask_ai(system_prompt: str, messages_history: list) -> str:
+async def ask_ai(system_prompt: str, messages_history: list) -> str:
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -97,13 +97,13 @@ def ask_ai(system_prompt: str, messages_history: list) -> str:
         "max_tokens": 150,
     }
 
-    response = requests.post(url, json=payload, headers=headers, timeout=20)
-
-    if response.status_code == 200:
-        data = response.json()
-        return data["choices"][0]["message"]["content"]
-    else:
-        raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        response = await client.post(url, json=payload, headers=headers)
+        if response.status_code == 200:
+            data = response.json()
+            return data["choices"][0]["message"]["content"]
+        else:
+            raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
 
 async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
     if not GROQ_API_KEY:
@@ -133,7 +133,6 @@ def split_into_messages(text: str) -> list:
     if len(sentences) <= 1:
         return [clean_text]
     
-    # Делим ровно на 2 куска: всё основное и последняя фраза-добавка
     first_part = " ".join(sentences[:-1])
     second_part = sentences[-1]
     
@@ -161,12 +160,12 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
     CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
 
     try:
-        if chat_id == MY_ADMIN_CHAT_ID:
+        if MY_ADMIN_CHAT_ID != 0 and chat_id == MY_ADMIN_CHAT_ID:
             current_prompt = FIL_LOVE_PROMPT
         else:
             current_prompt = FIL_DEFAULT_PROMPT
 
-        answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id]).strip()
+        answer = (await ask_ai(current_prompt, CHAT_HISTORY[chat_id])).strip()
         
         parts = split_into_messages(answer)
 
@@ -190,7 +189,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 reply_to_message_id=reply_id
             )
             
-            # Человеческая пауза между сообщениями (от 5 до 9 секунд)
             if len(parts) > 1 and i < len(parts) - 1:
                 await asyncio.sleep(random.uniform(5.0, 9.0))
 
@@ -256,7 +254,7 @@ async def auto_initiative_loop(app):
         if (get_msk_now() - last_activity).total_seconds() / 60.0 >= 40.0:
             try:
                 history = CHAT_HISTORY.get(chat_id, [])
-                answer = ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history).strip()
+                answer = (await ask_ai(FIL_AUTO_INITIATIVE_PROMPT, history)).strip()
                 
                 parts = split_into_messages(answer)
 
@@ -278,7 +276,7 @@ async def handle_direct(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
         return
     try:
-        answer = ask_ai(FIL_DEFAULT_PROMPT, [{"role": "user", "content": update.message.text}])
+        answer = await ask_ai(FIL_DEFAULT_PROMPT, [{"role": "user", "content": update.message.text}])
         await update.message.reply_text(answer)
     except Exception as e:
         print("\n❌ ОШИБКА DIRECT:", repr(e))
