@@ -7,12 +7,12 @@ import json
 import requests
 import httpx
 from datetime import datetime, timezone, timedelta
-from aiohttp import web
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
     TypeHandler,
+    Defaults,
 )
 
 # ==============================
@@ -22,9 +22,6 @@ from telegram.ext import (
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-PORT = int(os.environ.get("PORT", 8080))
-
-RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://my-telegram-bot013.onrender.com")
 
 TARGET_LOVE_CHAT_ID = 1257683623
 
@@ -276,7 +273,7 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         PENDING_TASKS.pop(chat_id, None)
 
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print(f"\n📥 [DEBUG] Пришел апдейт от Telegram: {update.to_dict()}")
+    print(f"\n📥 [DEBUG] Поймал апдейт: {update.to_dict()}")
 
     msg = (
         update.business_message 
@@ -286,7 +283,6 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     if not msg:
-        print("❌ [DEBUG] Сообщение в апдейте не распознано.")
         return
 
     chat_id = msg.chat.id
@@ -318,7 +314,7 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             user_text = "[Медиа/Фото]"
 
-    print(f"💬 [DEBUG] Чат ID: {chat_id} | Бизнес Коннект ID: {business_conn_id} | Текст: {user_text}")
+    print(f"💬 Текст от юзера ({chat_id}): {user_text}")
 
     LAST_DIALOG_INFO["chat_id"] = chat_id
     LAST_DIALOG_INFO["business_connection_id"] = business_conn_id
@@ -376,52 +372,18 @@ async def handle_business_connection(update: Update, context: ContextTypes.DEFAU
     if update.business_connection:
         print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
 
-telegram_app = None
+def main():
+    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
-async def webhook_handler(request: web.Request):
-    try:
-        data = await request.json()
-        update = Update.de_json(data, telegram_app.bot)
-        await telegram_app.process_update(update)
-        return web.Response(text="OK")
-    except Exception as e:
-        print("❌ Ошибка обработки вебхука:", e)
-        return web.Response(status=500, text="Internal Server Error")
+    app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
+    app.add_handler(TypeHandler(Update, handle_business), group=-1)
 
-async def handle_ping(request):
-    return web.Response(text="Bot is live via Webhook!")
+    loop = asyncio.get_event_loop()
+    loop.create_task(auto_initiative_loop(app))
 
-async def main():
-    global telegram_app
-    telegram_app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-
-    telegram_app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
-    telegram_app.add_handler(TypeHandler(Update, handle_business), group=-1)
-
-    await telegram_app.initialize()
-    await telegram_app.start()
-
-    webhook_url = f"{RENDER_EXTERNAL_URL.rstrip('/')}/webhook"
-    # Явно указываем allowed_updates=Update.ALL_TYPES, чтобы Telegram передавал бизнес-сообщения
-    await telegram_app.bot.set_webhook(url=webhook_url, allowed_updates=Update.ALL_TYPES)
-    print(f"✅ Вебхук успешно установлен на: {webhook_url}")
-
-    asyncio.create_task(auto_initiative_loop(telegram_app))
-
-    app = web.Application()
-    app.router.add_get("/", handle_ping)
-    app.router.add_post("/webhook", webhook_handler)
-
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT)
-    await site.start()
-
-    stop_event = asyncio.Event()
-    await stop_event.wait()
+    print("🚀 Бот запущен в режиме Поллинга с автосбросом старых сессий...")
+    # drop_pending_updates=True мгновенно сбрасывает любые зависшие конфликты на стороне Telegram!
+    app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        pass
+    main()
