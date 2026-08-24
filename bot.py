@@ -368,22 +368,19 @@ async def auto_initiative_loop(app):
         except Exception as e:
             print("❌ Ошибка авто-инициативы:", e)
 
-async def handle_business_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.business_connection:
-        print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
-
-def main():
+async def amain():
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
     app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
     app.add_handler(TypeHandler(Update, handle_business), group=-1)
 
-    loop = asyncio.get_event_loop()
-    loop.create_task(auto_initiative_loop(app))
+    asyncio.create_task(auto_initiative_loop(app))
 
     print("🚀 Бот запущен в режиме Поллинга с автосбросом старых сессий...")
-    # drop_pending_updates=True мгновенно сбрасывает любые зависшие конфликты на стороне Telegram!
-    app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
+    await app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(amain())
+    except (KeyboardInterrupt, SystemExit):
+        pass
