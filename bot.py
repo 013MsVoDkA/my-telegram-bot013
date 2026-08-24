@@ -87,8 +87,8 @@ async def ask_ai(system_prompt: str, user_text: str) -> str:
         "Authorization": f"Bearer {GROQ_API_KEY}",
         "Content-Type": "application/json",
     }
-   payload = {
-        "model": "openai/gpt-oss-20b",
+    payload = {
+        "model": "llama-3.1-8b-instant",
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_text}
@@ -152,5 +152,5 @@ if __name__ == "__main__":
     app.add_handler(MessageHandler(filters.UpdateType.BUSINESS_MESSAGE, handle_message))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("🚀 Бот запущен на Groq (llama-3.3-70b-versatile)...")
+    print("🚀 Бот запущен!")
     app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
