@@ -24,6 +24,9 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
+# Твой публичный адрес на Render
+RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://my-telegram-bot013.onrender.com")
+
 TARGET_LOVE_CHAT_ID = 1257683623
 
 MSK_TZ = timezone(timedelta(hours=3))
@@ -67,7 +70,6 @@ LAST_DIALOG_INFO = {
 
 MY_ADMIN_CHAT_ID = 1257683623
 
-# Статус занятости Фила
 FIL_STATUS = {
     "is_busy": False,
     "busy_until": None,
@@ -75,7 +77,6 @@ FIL_STATUS = {
     "busy_start_time": None
 }
 
-# Список стикеров (сюда можно вставить file_id стикеров)
 FIL_STICKERS = [
     "CAACAgIAAxkBAAEt7slqiwhqxhmc7FUsY-EQsXkVtmevgQACPiIAAlVnMEl8llJpuz-g9z0E",
     "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
@@ -83,7 +84,7 @@ FIL_STICKERS = [
 ]
 
 # ============================================================
-# 🧠 ПРОМПТЫ ФИЛА (СМЯГЧЕННЫЕ И ТЕПЛЫЕ)
+# 🧠 ПРОМПТЫ ФИЛА
 # ============================================================
 
 FIL_LOVE_PROMPT = """
@@ -132,18 +133,14 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) ->
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
     }
-
     payload_messages = [{"role": "system", "content": system_prompt}] + messages_history
-
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": payload_messages,
         "temperature": 0.7,
         "max_tokens": max_tokens,
     }
-
     response = requests.post(url, json=payload, headers=headers, timeout=25)
-
     if response.status_code == 200:
         data = response.json()
         return data["choices"][0]["message"]["content"]
@@ -153,12 +150,10 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) ->
 async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
     if not GROQ_API_KEY:
         return "[Голосовое/кружок]"
-
     groq_url = "https://api.groq.com/openai/v1/audio/transcriptions"
     headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
     files = {"file": (filename, bytes(file_bytes))}
     data = {"model": "whisper-large-v3"}
-
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(groq_url, headers=headers, data=data, files=files)
@@ -180,7 +175,6 @@ def split_into_messages(text: str) -> list:
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     try:
         now = get_msk_now()
-
         if FIL_STATUS["is_busy"]:
             if FIL_STATUS["busy_start_time"] and (now - FIL_STATUS["busy_start_time"]).total_seconds() > 2400:
                 FIL_STATUS["is_busy"] = False
@@ -372,34 +366,54 @@ async def handle_business_connection(update: Update, context: ContextTypes.DEFAU
     if update.business_connection:
         print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
 
-async def handle_ping(request):
-    return web.Response(text="Bot is live!")
+# Глобальный объект приложения Telegram для вебхука
+telegram_app = None
 
-async def start_web_server():
+async def webhook_handler(request: web.Request):
+    """Принимает входящие запросы от Telegram через вебхук"""
+    try:
+        data = await request.json()
+        update = Update.de_json(data, telegram_app.bot)
+        await telegram_app.process_update(update)
+        return web.Response(text="OK")
+    except Exception as e:
+        print("❌ Ошибка обработки вебхука:", e)
+        return web.Response(status=500, text="Internal Server Error")
+
+async def handle_ping(request):
+    return web.Response(text="Bot is live via Webhook!")
+
+async def main():
+    global telegram_app
+    telegram_app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+
+    telegram_app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
+    telegram_app.add_handler(TypeHandler(Update, handle_business), group=-1)
+
+    # Инициализируем приложение Telegram
+    await telegram_app.initialize()
+    await telegram_app.start()
+
+    # Устанавливаем вебхук в Telegram
+    webhook_url = f"{RENDER_EXTERNAL_URL.rstrip('/')}/webhook"
+    await telegram_app.bot.set_webhook(url=webhook_url)
+    print(f"✅ Вебхук успешно установлен на: {webhook_url}")
+
+    asyncio.create_task(auto_initiative_loop(telegram_app))
+
+    # Настраиваем aiohttp сервер
     app = web.Application()
     app.router.add_get("/", handle_ping)
+    app.router.add_post("/webhook", webhook_handler)
+
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", PORT)
     await site.start()
 
-async def main():
-    await start_web_server()
-    app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-
-    app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
-    app.add_handler(TypeHandler(Update, handle_business), group=-1)
-
-    asyncio.create_task(auto_initiative_loop(app))
-
-    await app.initialize()
-    await app.start()
-    
-    # drop_pending_updates=True сбрасывает старый конфликтный getUpdates при перезапуске!
-    await app.updater.start_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
-    
     stop_event = asyncio.Event()
     await stop_event.wait()
+
 if __name__ == "__main__":
     try:
         asyncio.run(main())
