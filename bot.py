@@ -384,6 +384,22 @@ async def amain():
 
 if __name__ == "__main__":
     try:
-        asyncio.run(amain())
+        import sys
+        if sys.version_info >= (3, 8) and sys.platform.startswith("win"):
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        
+        # Запускаем через штатный метод библиотеки, он сам всё подтянет без ручного asyncio.run
+        app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+        app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
+        app.add_handler(TypeHandler(Update, handle_business), group=-1)
+
+        # Фоновая задача авто-инициативы
+        async def post_init(application):
+            asyncio.create_task(auto_initiative_loop(application))
+
+        app.post_init = post_init
+
+        print("🚀 Бот запущен в режиме Поллинга...")
+        app.run_polling(allowed_updates=Update.ALL_TYPES, drop_pending_updates=True)
     except (KeyboardInterrupt, SystemExit):
         pass
