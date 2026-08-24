@@ -24,7 +24,6 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 8080))
 
-# Твой публичный адрес на Render
 RENDER_EXTERNAL_URL = os.environ.get("RENDER_EXTERNAL_URL", "https://my-telegram-bot013.onrender.com")
 
 TARGET_LOVE_CHAT_ID = 1257683623
@@ -277,8 +276,17 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
         PENDING_TASKS.pop(chat_id, None)
 
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg = update.business_message or update.message
+    print(f"\n📥 [DEBUG] Пришел апдейт от Telegram: {update.to_dict()}")
+
+    msg = (
+        update.business_message 
+        or update.message 
+        or update.edited_business_message 
+        or update.edited_message
+    )
+    
     if not msg:
+        print("❌ [DEBUG] Сообщение в апдейте не распознано.")
         return
 
     chat_id = msg.chat.id
@@ -309,6 +317,8 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_text = "[Отправила стикер]"
         else:
             user_text = "[Медиа/Фото]"
+
+    print(f"💬 [DEBUG] Чат ID: {chat_id} | Бизнес Коннект ID: {business_conn_id} | Текст: {user_text}")
 
     LAST_DIALOG_INFO["chat_id"] = chat_id
     LAST_DIALOG_INFO["business_connection_id"] = business_conn_id
@@ -366,11 +376,9 @@ async def handle_business_connection(update: Update, context: ContextTypes.DEFAU
     if update.business_connection:
         print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
 
-# Глобальный объект приложения Telegram для вебхука
 telegram_app = None
 
 async def webhook_handler(request: web.Request):
-    """Принимает входящие запросы от Telegram через вебхук"""
     try:
         data = await request.json()
         update = Update.de_json(data, telegram_app.bot)
@@ -390,18 +398,16 @@ async def main():
     telegram_app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
     telegram_app.add_handler(TypeHandler(Update, handle_business), group=-1)
 
-    # Инициализируем приложение Telegram
     await telegram_app.initialize()
     await telegram_app.start()
 
-    # Устанавливаем вебхук в Telegram
     webhook_url = f"{RENDER_EXTERNAL_URL.rstrip('/')}/webhook"
-    await telegram_app.bot.set_webhook(url=webhook_url)
+    # Явно указываем allowed_updates=Update.ALL_TYPES, чтобы Telegram передавал бизнес-сообщения
+    await telegram_app.bot.set_webhook(url=webhook_url, allowed_updates=Update.ALL_TYPES)
     print(f"✅ Вебхук успешно установлен на: {webhook_url}")
 
     asyncio.create_task(auto_initiative_loop(telegram_app))
 
-    # Настраиваем aiohttp сервер
     app = web.Application()
     app.router.add_get("/", handle_ping)
     app.router.add_post("/webhook", webhook_handler)
