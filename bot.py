@@ -165,6 +165,7 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) ->
 
 async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
     if not GROQ_API_KEY:
+        print("❌ GROQ_API_KEY не задан!")
         return "[Голосовое/кружок]"
 
     groq_url = "https://api.groq.com/openai/v1/audio/transcriptions"
@@ -177,10 +178,13 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
             resp = await client.post(groq_url, headers=headers, data=data, files=files)
             if resp.status_code == 200:
                 transcript = resp.json().get("text", "").strip()
+                print(f"🎤 Успешная расшифровка ГС: {transcript}")
                 return f"(голосовое/кружок): {transcript}"
             else:
+                print(f"❌ Ошибка Groq API: {resp.status_code} - {resp.text}")
                 return "(голосовое/кружок)"
-    except Exception:
+    except Exception as e:
+        print(f"❌ Исключение при запросе к Groq: {repr(e)}")
         return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
@@ -284,20 +288,39 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = msg.chat.id
     user_text = msg.text
 
+    # Исправленная и надежная проверка голосовых, кружков и медиа для Business API
     if not user_text:
-        if msg.voice or msg.video_note:
-            file_obj = msg.voice if msg.voice else msg.video_note
-            filename = "audio.ogg" if msg.voice else "video.mp4"
+        file_obj = None
+        filename = "audio.ogg"
+        
+        if msg.voice:
+            file_obj = msg.voice
+            filename = "audio.ogg"
+        elif msg.video_note:
+            file_obj = msg.video_note
+            filename = "video.mp4"
+        elif msg.audio:
+            file_obj = msg.audio
+            filename = "audio.mp3"
+        elif msg.document and msg.document.mime_type and "audio" in msg.document.mime_type:
+            file_obj = msg.document
+            filename = "audio.mp3"
+
+        if file_obj:
             try:
+                print(f"📥 Скачивание голосового/видеокружка (file_id: {file_obj.file_id})...")
                 file = await context.bot.get_file(file_obj.file_id)
                 file_bytes = await file.download_as_bytearray()
                 user_text = await transcribe_audio(file_bytes, filename)
-            except Exception:
+            except Exception as e:
+                print(f"❌ Ошибка скачивания/расшифровки медиа: {repr(e)}")
                 user_text = "(отправила голосовое/кружок)"
         elif msg.sticker:
             user_text = "[Отправила стикер]"
+        elif msg.photo:
+            user_text = "[Отправила фото]"
         else:
-            user_text = "[Медиа/Фото]"
+            user_text = "[Медиа/Файл]"
 
     LAST_DIALOG_INFO["chat_id"] = chat_id
     LAST_DIALOG_INFO["business_connection_id"] = msg.business_connection_id
