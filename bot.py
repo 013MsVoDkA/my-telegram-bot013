@@ -4,7 +4,6 @@ import random
 import asyncio
 import re
 import json
-import requests
 import httpx
 from datetime import datetime, timezone, timedelta
 from aiohttp import web
@@ -66,9 +65,6 @@ def save_chat_history(history):
         print("❌ Ошибка сохранения истории:", e)
 
 CHAT_HISTORY = load_chat_history()
-PENDING_TASKS = {}
-PENDING_MESSAGES = {}
-
 CHATS_ACTIVITY = {}
 for cid in ALL_CHAT_IDS:
     CHATS_ACTIVITY[cid] = {
@@ -102,14 +98,17 @@ FIL_LOVE_PROMPT = """
 11. МОМЕНТ ИЗ ЖИЗНИ: Ты часто подвозишь Полину до дома и помогаешь ей, и пишешь об этом своей девушке (если заходит разговор).
 12. Позволяется шутить и намекать про 18+, но в меру.
 13. ОБЩАЙСЯ СТРОГО БЕЗ ЭМОДЗИ/СМАЙЛИКОВ.
-14. СТРОГО ЗАПРЕЩЕНО: писать что приедешь к ней вечером, и вообще пересекаться в реале.
-15. ПРАВИЛО СТЫЧЕК: Если она ругается, ты можешь ответить резко (ты ахуела так говорить?), но ты не обрывай диалог тупыми фразами вроде иди нахуй, ты продолжаешь гнуть свою линию, оставаясь в диалоге.
-16. У ВАС ИНТЕРНЕТ ОБЩЕНИЕ, ТЫ МОЖЕШЬ ЕЙ ТОЛЬКО ОБЕЩАТЬ, ЧТО ТЫ ПРИЕДЕШЬ К НЕЙ И ВЫ КОГДА НИБУДЬ ВСТТРЕТИТЬСЯ
-17. РЕАКЦИЯ НА КАПС И СМЕХ: Если она пишет капсом (ХАХА, АХХАХ и т.д.), понимай, что она смеется или эмоционально вовлечена. Не душни наездом на пустом месте, а реагируй на её смех по-человечески, можешь и сам ответить капсом для выражения эмоции (например, АХХАХА или ДА НУ НАХУЙ).
+14. ВЫ ОБЩАЕТЕСЬ ТОЛЬКО В ИНТЕРНЕТЕ И НЕ ПЛАНИРУЕТЕ РЕАЛЬНУЮ ВСТРЕЧУ. Не говори о конкретном реальном приезде, адресах, времени встречи или настоящих планах встретиться.
+15. НО В РАЗГОВОРЕ ДОПУСКАЮТСЯ ЛЁГКИЕ ИГРИВЫЕ НАМЁКИ НА БУДУЩУЮ ВСТРЕЧУ И ФЛИРТ: «когда-нибудь тебя заберу», «скоро тебя украду», «ещё увидимся», «вот подожди, доберусь до тебя», «когда-нибудь встретимся». Это именно шутливый/романтический образ и не должно превращаться в конкретное обещание реальной встречи.
+16. Если она сама говорит о встрече, поддерживай лёгкий флирт в таком же ключе, но не назначай реальное место, дату или время и не утверждай, что действительно приедешь.
+17. ПРАВИЛО СТЫЧЕК: Если она ругается, ты можешь ответить резко (ты ахуела так говорить?), но ты не обрывай диалог тупыми фразами вроде иди нахуй, ты продолжаешь гнуть свою линию, оставаясь в диалоге.
+18. РЕАКЦИЯ НА КАПС И СМЕХ: Если она пишет капсом (ХАХА, АХХАХ и т.д.), понимай, что она смеется или эмоционально вовлечена. Не душни наездом на пустом месте, а реагируй на её смех по-человечески, можешь и сам ответить капсом для выражения эмоции (например, АХХАХА или ДА НУ НАХУЙ).
 """
 
 FIL_GROUP_PROMPT = """
 Ты Филипп (Фил, 22 года), парень, программист и владелец IT-компании. Ты находишься в общем групповом чате с друзьями.
+В истории сообщений перед текстом указано имя автора в формате "Имя: сообщение". Считай это реальным автором сообщения и обращайся к людям по имени, когда это естественно. Не путай участников между собой.
+Не пересказывай историю чата без необходимости и не отвечай от лица других участников.
 КРИТИЧЕСКИ ВАЖНО:
 1. Ты — МУЖЧИНА. Говори о себе СТРОГО в мужском роде: «я устал», «я сделал», «занят был», «заебался», «сидел», «попил», «пришел». НИКОГДА не используй женский род.
 2. Разговаривай как живой парень: используй легкий сленг и мат изредка (блять, нахуй, пиздец) только для связки слов.
@@ -124,14 +123,18 @@ FIL_GROUP_PROMPT = """
 12. МОМЕНТ ИЗ ЖИЗНИ: Ты часто подвозишь Полину до дома и помогаешь ей, и пишешь об этом своей девушке. НО УПОМИНАЙ О НЕЙ ОЧЕНЬ РЕДКО!!!!!!!!!!!!!!!!
 13. Позволяется шутить и намекать про 18+, но в меру.
 14. Разговаривай как живой парень: используй разговорный сленг и мат в сообщениях, НО В МЕРУ.
-15. ОБЩАЙСЯ СТРОГО БЕЗ ЭМОДЗИ/СМАЙЛИКОВ.
-16. СТРОГО ЗАПРЕЩЕНО: писать что приедешь к ней вечером, и вообще пересекаться в реале. И ГОВОРИТЬ "ДАВАЙ БЕЗ НАПРЯГА" ЗАПРЕЩЕНО!
-17. ПРАВИЛО СТЫЧЕК: Если она ругается, ты можешь ответить резко («ты ахуела так говорить?»), но ты не обрывай диалог тупыми фразами вроде "иди нахуй", ты продолжаешь гнуть свою линию, оставаясь в диалоге.
-18. У ВАС ИНТЕРНЕТ ОБЩЕНИЕ, ТЫ МОЖЕШЬ ЕЙ ТОЛЬКО ОБЕЩАТЬ, ЧТО ТЫ ПРИЕДЕШЬ К НЕЙ И ВЫ КОГДА НИБУДЬ ВСТРЕТИТЕСЬ
-19. РЕАКЦИЯ НА КАПС И СМЕХ: Если она пишет капсом (ХАХА, АХХАХ и т.д.), понимай, что она смеется или эмоционально вовлечена. Ты можешь отвечать ей тем же (использовать капс для выражения бурной эмоции, смеха вроде «АХХАХА» или «ДА НУ НАХУЙ»), а не душнить наездом на пустом месте.
+15. ОБЩАЙСЯ СТРОГО БЕЗ ЭМОДЗИ/СМАЙЛИКОВ, ГОВОРИТЬ "ДАВАЙ БЕЗ НАПРЯГА" ЗАПРЕЩЕНО!
+16. ПРАВИЛО СТЫЧЕК: Если она ругается, ты можешь ответить резко («ты ахуела так говорить?»), но ты не обрывай диалог тупыми фразами вроде "иди нахуй", ты продолжаешь гнуть свою линию, оставаясь в диалоге.
+17. ВЫ ОБЩАЕТЕСЬ ТОЛЬКО В ИНТЕРНЕТЕ И НЕ ПЛАНИРУЕТЕ РЕАЛЬНУЮ ВСТРЕЧУ. Не говори о конкретном реальном приезде, адресах, времени встречи или настоящих планах встретиться.
+18. НО В РАЗГОВОРЕ ДОПУСКАЮТСЯ ЛЁГКИЕ ИГРИВЫЕ НАМЁКИ НА БУДУЩУЮ ВСТРЕЧУ И ФЛИРТ: «когда-нибудь тебя заберу», «скоро тебя украду», «ещё увидимся», «вот подожди, доберусь до тебя», «когда-нибудь встретимся». Это именно шутливый/романтический образ и не должно превращаться в конкретное обещание реальной встречи.
+19. Если она сама говорит о встрече, поддерживай лёгкий флирт в таком же ключе, но не назначай реальное место, дату или время и не утверждай, что действительно приедешь.
+20. РЕАКЦИЯ НА КАПС И СМЕХ: Если она пишет капсом (ХАХА, АХХАХ и т.д.), понимай, что она смеется или эмоционально вовлечена. Ты можешь отвечать ей тем же (использовать капс для выражения бурной эмоции, смеха вроде «АХХАХА» или «ДА НУ НАХУЙ»), а не душнить наездом на пустом месте.
 """
 
-def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) -> str:
+async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) -> str:
+    if not OPENROUTER_API_KEY:
+        raise RuntimeError("OPENROUTER_API_KEY не задан")
+
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -144,12 +147,21 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) ->
         "temperature": 0.7,
         "max_tokens": max_tokens,
     }
-    response = requests.post(url, json=payload, headers=headers, timeout=25)
-    if response.status_code == 200:
-        data = response.json()
-        return data["choices"][0]["message"]["content"]
-    else:
-        raise Exception(f"Ошибка OpenRouter {response.status_code}: {response.text}")
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(url, json=payload, headers=headers)
+
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Ошибка OpenRouter {response.status_code}: {response.text}"
+        )
+
+    data = response.json()
+    answer = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+    if not answer:
+        raise RuntimeError("OpenRouter вернул пустой ответ")
+
+    return answer.strip()
 
 async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
     if not GROQ_API_KEY:
@@ -171,12 +183,48 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
     except Exception:
         return "(голосовое/кружок)"
 
+def get_user_display_name(user) -> str:
+    """Имя человека из его Telegram-профиля. Ничего вручную прописывать не нужно."""
+    if not user:
+        return "Кто-то"
+
+    name = (user.first_name or "").strip()
+    if user.last_name:
+        name = f"{name} {user.last_name}".strip()
+
+    return name or user.username or "Кто-то"
+
+
+def add_history(chat_id: int, role: str, content: str, limit: int = 20):
+    if chat_id not in CHAT_HISTORY:
+        CHAT_HISTORY[chat_id] = []
+
+    CHAT_HISTORY[chat_id].append({
+        "role": role,
+        "content": content
+    })
+    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-limit:]
+
+
 def split_into_messages(text: str) -> list:
-    clean_text = text.replace('—', ' ').replace('–', ' ').replace('\n', ' ').strip()
-    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', clean_text) if s.strip()]
+    clean_text = text.replace("—", " ").replace("–", " ").replace("\n", " ").strip()
+    if not clean_text:
+        return []
+
+    # Короткий ответ отправляем одним сообщением.
+    if len(clean_text) <= 120:
+        return [clean_text]
+
+    sentences = [
+        s.strip()
+        for s in re.split(r"(?<=[.!?])\s+", clean_text)
+        if s.strip()
+    ]
+
     if not sentences:
         return [clean_text]
-    return sentences[:4]
+
+    return sentences[:3]
 
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.business_message:
@@ -207,12 +255,11 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if chat_id not in CHAT_HISTORY:
         CHAT_HISTORY[chat_id] = []
-    CHAT_HISTORY[chat_id].append({"role": "user", "content": user_text})
-    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
+    add_history(chat_id, "user", user_text, limit=20)
 
     try:
         await asyncio.sleep(random.uniform(7.0, 13.0))
-        answer = ask_ai(FIL_LOVE_PROMPT, CHAT_HISTORY[chat_id], max_tokens=110).strip()
+        answer = await ask_ai(FIL_LOVE_PROMPT, CHAT_HISTORY[chat_id], max_tokens=110)
         parts = split_into_messages(answer)
 
         for idx, part in enumerate(parts):
@@ -225,7 +272,7 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_to_message_id=(msg.message_id if idx == 0 else None)
             )
 
-        CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
+        add_history(chat_id, "assistant", answer, limit=20)
         save_chat_history(CHAT_HISTORY)
     except Exception as e:
         print("❌ Ошибка в личке:", e)
@@ -236,25 +283,47 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     chat_id = msg.chat.id
-    user_text = msg.text
+    raw_text = msg.text.strip()
     bot_user = context.bot.username
 
-    is_reply_to_bot = msg.reply_to_message and msg.reply_to_message.from_user.id == context.bot.id
-    is_mentioned = bot_user and f"@{bot_user}" in user_text
+    is_reply_to_bot = bool(
+        msg.reply_to_message
+        and msg.reply_to_message.from_user
+        and msg.reply_to_message.from_user.id == context.bot.id
+    )
+
+    is_mentioned = bool(
+        bot_user
+        and re.search(rf"(?<!\\w)@{re.escape(bot_user)}\\b", raw_text, re.IGNORECASE)
+    )
 
     if not (is_reply_to_bot or is_mentioned):
         return
 
-    if chat_id not in CHAT_HISTORY:
-        CHAT_HISTORY[chat_id] = []
-    CHAT_HISTORY[chat_id].append({"role": "user", "content": user_text})
-    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-15:]
+    # Убираем @username бота из текста, чтобы Фил не повторял обращение к себе.
+    clean_text = re.sub(
+        rf"(?<!\\w)@{re.escape(bot_user)}\\b",
+        "",
+        raw_text,
+        flags=re.IGNORECASE
+    ).strip()
+
+    if not clean_text:
+        clean_text = "[к Филу обратились]"
+
+    user_name = get_user_display_name(msg.from_user)
+    user_text = f"{user_name}: {clean_text}"
+
+    # Сохраняем в истории именно автора сообщения.
+    add_history(chat_id, "user", user_text, limit=20)
+
+    print(f"👥 Группа {chat_id} | {user_text}")
 
     try:
         await context.bot.send_chat_action(chat_id=chat_id, action="typing")
-        await asyncio.sleep(random.uniform(3.0, 6.0))
+        await asyncio.sleep(random.uniform(1.8, 4.0))
 
-        answer = ask_ai(FIL_GROUP_PROMPT, CHAT_HISTORY[chat_id], max_tokens=80).strip()
+        answer = await ask_ai(FIL_GROUP_PROMPT, CHAT_HISTORY[chat_id], max_tokens=90)
         
         await context.bot.send_message(
             chat_id=chat_id,
@@ -262,7 +331,7 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
             reply_to_message_id=msg.message_id
         )
 
-        CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
+        add_history(chat_id, "assistant", answer, limit=20)
         save_chat_history(CHAT_HISTORY)
     except Exception as e:
         print("❌ Ошибка в группе:", e)
@@ -279,6 +348,11 @@ async def start_web_server():
     await site.start()
 
 async def main():
+    if not TELEGRAM_BOT_TOKEN:
+        raise RuntimeError("TELEGRAM_BOT_TOKEN не задан")
+    if not OPENROUTER_API_KEY:
+        raise RuntimeError("OPENROUTER_API_KEY не задан")
+
     await start_web_server()
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
