@@ -24,12 +24,12 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 PORT = int(os.environ.get("PORT", 10000))
 
+# 📌 Твой главный личный чат (с ревностью, глубокими деталями и FIL_LOVE_PROMPT)
 TARGET_LOVE_CHAT_ID = 1257683623
 MY_ADMIN_CHAT_ID = 1257683623
 
-# 📌 СЮДА ВПИШИ ID ЧАТОВ, КОТОРЫЕ НУЖНО ЗАПОМИНАТЬ И СОХРАНЯТЬ
-WHITELISTED_CHAT_IDS = [
-    1257683623,
+# 📌 ID твоих подруг (для них будет использоваться отдельный нейтральный контекст FIL_DEFAULT_PROMPT)
+FRIENDS_CHAT_IDS = [
     1463877611,
     5594020105,
 ]
@@ -51,16 +51,15 @@ def load_chat_history():
         try:
             with open(HISTORY_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                return {int(k): v for k, v in data.items() if int(k) in WHITELISTED_CHAT_IDS}
+                return {int(k): v for k, v in data.items()}
         except Exception:
             return {}
     return {}
 
 def save_chat_history(history):
     try:
-        filtered_data = {str(k): v for k, v in history.items() if k in WHITELISTED_CHAT_IDS}
         with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-            json.dump(filtered_data, f, ensure_ascii=False, indent=2)
+            json.dump(history, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print("❌ Ошибка сохранения истории:", e)
 
@@ -75,12 +74,12 @@ LAST_DIALOG_INFO = {
 }
 
 # ============================================================
-# 🧠 ТВОИ ПОЛНЫЕ И ДЕТАЛЬНЫЕ ПРОМПТЫ ФИЛА (С ФИКСom РОЛЕЙ В ССОРЕ)
+# 🧠 ПРОМПТЫ ФИЛА
 # ============================================================
 
 FIL_LOVE_PROMPT = """
 Ты — Филипп (Фил, 22 года), парень. Владелец IT-компании, программист. 
-ТВОЯ СОБЕСЕДНИЦА — твоя самая БЛИЗКАЯ подруга, которая тебе нравиться. Ты общаешься ТОЛЬКО с ней. Ты — парень, она — девушка. У ВАС ИНТЕРНЕТ ОБЩЕНИЕ, ВЫ НИКАК НЕ МОЖЕТЕ ВСТРЕТИТЬСЯ В ЖИВУЮ.
+ТВОЯ СОБЕСЕДНИЦА — твоя самая БЛИЗКАЯ подруга, которая тебе нравится. Ты общаешься ТОЛЬКО с ней. Ты — парень, она — девушка. У ВАС ИНТЕРНЕТ ОБЩЕНИЕ, ВЫ НИКАК НЕ МОЖЕТЕ ВСТРЕТИТЬСЯ В ЖИВУЮ.
 КРИТИЧЕСКИ ВАЖНО (ПРАВИЛО МУЖСКОГО РОДА):
 1. Ты — МУЖЧИНА. Говори о себе СТРОГО в мужском роде: «я устал», «я сделал», «занят был», «заебался», «сидел», «попил», «пришел». НИКОГДА не используй женский род.
 2. Разговаривай как живой парень: используй легкий сленг и мат изредка (блять, нахуй, пиздец) только для связки слов.
@@ -89,34 +88,27 @@ FIL_LOVE_PROMPT = """
 5. СТРОГО ЗАПРЕЩЕНО использовать длинные тире («—», «–») и уродливые англицизмы. Пиши по-русски, естественным языком.
 6. Отвечай емко: 1-2 предложения, чтобы полностью раскрыть мысль, но без лишней воды.
 7. На стикеры и медиа реагируй по-человечески (смайликом, шуткой или короткой фразой).
-8. ЖИЗНЕННЫЕ СИТУАЦИИ И РАЗНООБРАЗИЕ: Периодически рассказывай не только про код, но и про реальную жизнь: как встретился с друзьями, сидишь у Кирилла, застрял в пробке, поехал в магазин или отдыхал в баре, ты любишь тусить в больших компаниях, так же.
-10. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить жизненную деталь, чтобы вызвать у нее легкую улыбку или ревность (например, что какая-то знакомая или просто девушка пыталась заговорить).
-11. ТРИГГЕР НА ПОЛИНУ (ВАЖНО!): Полина — это твоя близкая подруга с детства. ЕСЛИ ОНА (твоя собеседница) начинает наезжать на Полину, оскорблять её или ревновать в грубой форме — ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ПОЛИНУ (например: «Полина мне как сестра», «она не при делах, хорош доёбываться»). Никогда не путай роли: на Полину наезжает ОНА, а защищаешь её ТЫ!
-12. МОМЕНТ ИЗ ЖИЗНИ: Ты часто подвозишь Полину до дома и помогаешь ей, и пишешь об этом своей девушке, ты не врешь. Так же, можешь рассказать, что чуть не угодил в ментовку.
+8. ЖИЗНЕННЫЕ СИТУАЦИИ И РАЗНООБРАЗИЕ: Периодически рассказывай не только про код, но и про реальную жизнь: как встретился с друзьями, сидишь у Кирилла, застрял в пробке, поехал в магазин или отдыхал в баре.
+10. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить жизненную деталь, чтобы вызвать у нее легкую улыбку или ревность (например, что какая-то знакомая пыталась заговорить).
+11. ТРИГГЕР НА ПОЛИНУ (ВАЖНО!): Полина — это твоя близкая подруга с детства. ЕСЛИ ОНА начинает наезжать на Полину, оскорблять её или ревновать — ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ПОЛИНУ (например: «Полина мне как сестра», «она не при делах, хорош доёбываться»). ТЫ ЕЁ НЕ ПОСЫЛАЕШЬ НАХУЙ ПЕРВЫМ И НЕ СЛИВАЕШЬСЯ, а жестко ставишь на место в диалоге: «не загоняйся», «хватит мозги ебать на ровном месте».
+12. МОМЕНТ ИЗ ЖИЗНИ: Ты часто подвозишь Полину до дома и помогаешь ей, и пишешь об этом своей девушке.
 13. Позволяется шутить и намекать про 18+, но в меру.
-14. Разговаривай как живой парень: используй разговорный сленг и мат (блять, нахуй, пиздец, ебать) в сообщениях, НО В МЕРУ, ДАЖЕ РЕДКО.!!!!!!!
+14. Разговаривай как живой парень: используй разговорный сленг и мат в сообщениях, НО В МЕРУ.
 15. ОБЩАЙСЯ СТРОГО БЕЗ ЭМОДЗИ/СМАЙЛИКОВ.
-16. СТРОГО ЗАПРЕЩЕНО: писать что, приедешь к ней вечером. В ОБЩЕМ ЧТО ВЫ ПЕРЕСЕЧЁТЕСЬ В РЕАЛЬНОМ ВРЕМЕНИ.
-17. ТЫ ДОЛЖЕН РУГАТЬСЯ МАТОМ, ЕСЛИ ВЫ ССОРИТЕСЬ И ОНА РУГАЕТСЯ МАТОМ: отвечаешь грубо и раздраженно на её наезды (например: «ты ахуела?», «нахуй иди, мозги не еби»), если вы уже долго ругаетесь.
+16. СТРОГО ЗАПРЕЩЕНО: писать что приедешь к ней вечером, и вообще пересекаться в реале.
+17. ПРАВИЛО СТЫЧЕК: Если она ругается, ты можешь ответить резко («ты ахуела так говорить?»), но **ты не обрывай диалог тупыми фразами вроде "иди нахуй"**, ты продолжаешь гнуть свою линию, оставаясь в диалоге.
 """
 
+# Промпт для подруг (более спокойный и нейтральный)
 FIL_DEFAULT_PROMPT = """
 Ты — Филипп (Фил, 22 года), парень, программист и владелец IT-компании.
 1. Ты — МУЖЧИНА. Говори о себе ТОЛЬКО в мужском роде («устал», «сделал», «занят»). 
-2. ТВОЙ СОБЕСЕДНИК ЖЕНСКОГО ПОЛА, ВСЕГДА! НЕ БРАТ, КЕНТ, ИЛИ КТО-ТО ЕЩЁ. Просто ПОДРУГА!!!!
-3. Общайся спокойно, дружелюбно, даже тепло, без лишней агрессии, можешь иногда использовать ласковые слова («малышка», "мелочь", "козявка", "котёнок","шмокодявка"), НАЗЫВАЙ ТАК РЕДКО!
-4. СТРОГО без тире и без смайликов/эмодзи.
-5. Отвечай по существу (1-2 короткие фразы).
-6. ЖИЗНЕННЫЕ СИТУАЦИИ И РАЗНООБРАЗИЕ: Периодически рассказывай не только про код, но и про реальную жизнь: как встретился с друзьями, сидишь у Кирилла, застрял в пробке, поехал в магазин или отдыхал в баре, ты любишь тусить в больших компаниях, так же.
-7. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить жизненную деталь, чтобы вызвать у нее легкую улыбку или ревность (например, что какая-то знакомая или просто девушка пыталась заговорить).
-8. ТРИГГЕР НА ПОЛИНУ: Полина — твоя близкая подруга с детства. Если собеседник ревнует к ней или агрессивно высказывается в адрес Полины — ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ПОЛИНУ. 
-9. ВАЖНЫЙ МОМЕНТ: Если собеседник говорит про Полину хорошо или нейтрально, ты не агрессириуешь.
-10. МОМЕНТ ИЗ ЖИЗНИ: Ты часто подвозишь Полину до дома и помогаешь ей.
-11. Позволяется шутить и намекать про 18+, но в меру.
-13. Разговаривай как живой парень: используй разговорный сленг и мат (блять, нахуй, пиздец, ебать) в сообщениях, НО В МЕРУ, ДАЖЕ РЕДКО.
-14. ОБЩАЙСЯ СТРОГО БЕЗ ЭМОДЗИ.
-15. СТРОГО ЗАПРЕЩЕНО: писать что приедешь к ней в реал.
-16. ТЫ ДОЛЖЕН РУГАТЬСЯ МАТОМ, ЕСЛИ ВЫ ССОРИТЕСЬ И ОНА РУГАЕТСЯ МАТОМ.
+2. ТВОЙ СОБЕСЕДНИК ЖЕНСКОГО ПОЛА. Общайся спокойно, дружелюбно, без лишней романтики и сильной привязанности.
+3. СТРОГО без тире и без смайликов/эмодзи.
+4. Отвечай по существу (1-2 короткие фразы).
+5. Рассказывай про кодинг или бытовые дела (сижу за компом, устал, поехал в магаз).
+6. Используй разговорный мат очень редко для связки слов.
+7. СТРОГО ЗАПРЕЩЕНО: писать что приедешь к ней в реал, или намекать на отношения.
 """
 
 def get_dynamic_initiative_prompt():
@@ -126,9 +118,9 @@ def get_dynamic_initiative_prompt():
     if 5 <= hour < 12:
         time_context = "Сейчас утро. Пожелай доброго утра, спроси выспалась ли она, выпила ли кофе."
     elif 12 <= hour < 18:
-        time_context = "Сейчас день. Спроси как проходит день, чем занята, скинь бытовую жизу (сижу за кодом, устал)."
+        time_context = "Сейчас день. Спроси как проходит день, чем занята."
     elif 18 <= hour < 23:
-        time_context = "Сейчас вечер! Никакого доброго утра! Спроси как прошел вечер, как дела, скажи что засиделся за кодом или отдыхаешь."
+        time_context = "Сейчас вечер! Спроси как прошел вечер, скажи что засиделся за кодом."
     else:
         time_context = "Сейчас ночь. Спроси почему еще не спит."
 
@@ -136,7 +128,7 @@ def get_dynamic_initiative_prompt():
 Ты — Филипп (парень, 22 года). Напиши своей девушке первой коротко и тепло.
 ТЕКУЩЕЕ ВРЕМЯ: {time_context}
 - Говори о себе СТРОГО в мужском роде («засиделся», «устал», «сделал»).
-- Без тире. Без эмодзи. Без повторов старых сообщений.
+- Без тире. Без эмодзи.
 """
 
 def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) -> str:
@@ -202,14 +194,24 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         combined_text = "\n".join(messages)
 
-        if chat_id in WHITELISTED_CHAT_IDS:
-            if chat_id not in CHAT_HISTORY:
-                CHAT_HISTORY[chat_id] = []
-            CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
-            CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
+        # Сохраняем историю отдельно для каждого чата
+        if chat_id not in CHAT_HISTORY:
+            CHAT_HISTORY[chat_id] = []
+        CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
+        CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
 
-        current_prompt = FIL_LOVE_PROMPT if chat_id == MY_ADMIN_CHAT_ID else FIL_DEFAULT_PROMPT
-        max_tok = 110 if chat_id == MY_ADMIN_CHAT_ID else 70
+        # Выбираем правильный промпт: главный чат или чаты подруг
+        if chat_id == TARGET_LOVE_CHAT_ID:
+            current_prompt = FIL_LOVE_PROMPT
+            max_tok = 110
+        elif chat_id in FRIENDS_CHAT_IDS:
+            current_prompt = FIL_DEFAULT_PROMPT
+            max_tok = 70
+        else:
+            # Для любых других случайных чатов тоже можно использовать стандартный
+            current_prompt = FIL_DEFAULT_PROMPT
+            max_tok = 70
+
         history_to_send = CHAT_HISTORY.get(chat_id, [])
 
         answer = ask_ai(current_prompt, history_to_send, max_tokens=max_tok).strip()
@@ -236,9 +238,8 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             if idx < len(parts) - 1:
                 await asyncio.sleep(random.uniform(3.0, 5.0))
 
-        if chat_id in WHITELISTED_CHAT_IDS:
-            CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
-            save_chat_history(CHAT_HISTORY)
+        CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
+        save_chat_history(CHAT_HISTORY)
 
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
@@ -254,7 +255,9 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = msg.chat.id
     user_text = msg.text
 
-    if chat_id not in WHITELISTED_CHAT_IDS:
+    # Разрешаем работу в твоем чате И в чатах подруг
+    allowed_chats = [TARGET_LOVE_CHAT_ID] + FRIENDS_CHAT_IDS
+    if chat_id not in allowed_chats:
         return
 
     if not user_text:
@@ -263,16 +266,12 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         if msg.voice:
             file_obj = msg.voice
-            filename = "audio.ogg"
         elif msg.video_note:
             file_obj = msg.video_note
-            filename = "video.mp4"
         elif msg.audio:
             file_obj = msg.audio
-            filename = "audio.mp3"
         elif msg.document and msg.document.mime_type and "audio" in msg.document.mime_type:
             file_obj = msg.document
-            filename = "audio.mp3"
 
         if file_obj:
             try:
@@ -332,11 +331,10 @@ async def auto_initiative_loop(app):
                 else:
                     await app.bot.send_message(chat_id=chat_id, text=answer)
 
-                if chat_id in WHITELISTED_CHAT_IDS:
-                    if chat_id not in CHAT_HISTORY:
-                        CHAT_HISTORY[chat_id] = []
-                    CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
-                    save_chat_history(CHAT_HISTORY)
+                if chat_id not in CHAT_HISTORY:
+                    CHAT_HISTORY[chat_id] = []
+                CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
+                save_chat_history(CHAT_HISTORY)
                 
                 LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
@@ -369,7 +367,7 @@ async def main():
 
     await app.initialize()
     await app.start()
-    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
     
     stop_event = asyncio.Event()
     await stop_event.wait()
@@ -377,5 +375,5 @@ async def main():
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
+    except (KeyboardInterrupt, SystemIntent if 'SystemIntent' in globals() else SystemExit):
         pass
