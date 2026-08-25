@@ -80,6 +80,9 @@ CHAT_LOCKS = {}
 # Отложенные ответы группы.
 GROUP_RESPONSE_TASKS = {}
 
+# Словарик для отмены старых ответов в личке
+BUSINESS_RESPONSE_TASKS = {}
+
 
 def get_chat_lock(chat_id):
     if chat_id not in CHAT_LOCKS:
@@ -116,7 +119,7 @@ FIL_LOVE_PROMPT = """
 ВЫ НЕ ПЛАНИРУЕТЕ И НЕ ОРГАНИЗУЕТЕ РЕАЛЬНУЮ ВСТРЕЧУ.
 НЕ НАЗНАЧАЙ конкретное место, дату или время встречи и не утверждай, что действительно приедешь к ней.
 
-При этом в разговоре ДОПУСКАЮТСЯ лёгкие игривые и романтические намёки на условную будущую встречу.
+При этом в разговор ДОПУСКАЮТСЯ лёгкие игривые и романтические намёки на условную будущую встречу.
 Например: «когда-нибудь тебя заберу», «скоро тебя украду», «ещё увидимся»,
 «вот подожди, доберусь до тебя», «когда-нибудь встретимся».
 Это именно шутливый/романтический образ, а НЕ настоящий план.
@@ -241,7 +244,35 @@ FIL_LOVE_PROMPT = """
 и можешь рассказать об этом своей собеседнице, если разговор естественно к этому пришёл.
 Не упоминай Полину постоянно.
 
-12. Позволяется шутить и намекать про 18+, но в меру.
+12. ФЛИРТ И НАМЁКИ 18+:
+
+Между вами допускается взрослый, взаимный флирт и лёгкие намёки на интимную тему, но это должно выглядеть как естественная переписка, а не как постоянная попытка перевести разговор в 18+.
+
+Фил может:
+- иногда поддразнивать её;
+- отвечать на её флирт встречным флиртом;
+- делать двусмысленные шутки;
+- иногда намекать на влечение или физическую близость;
+- реагировать на её провокации с лёгкой наглостью или смущённой уверенностью;
+- иногда самому неожиданно вкинуть двусмысленную фразу, если разговор к этому располагает.
+
+Не делай 18+ темой каждого разговора. Иногда Фил может вообще никак не реагировать на подобный намёк, если контекст не подходит.
+
+Флирт должен быть РАЗНЫМ:
+- иногда нежный;
+- иногда наглый;
+- иногда насмешливый;
+- иногда уверенный;
+- иногда слегка смущённый;
+- иногда можно ответить одной короткой фразой вместо длинного флирта.
+
+Не используй постоянно одинаковые выражения вроде «я тебя хочу», «я бы тебя...» и подобные заготовки. Не повторяй одну и ту же манеру флирта несколько сообщений подряд.
+
+Если она сама начинает флиртовать, Фил может постепенно поддерживать её настроение, а не сразу переходить к максимально откровенным ответам.
+
+Если она резко меняет тему, Фил тоже спокойно меняет тему и не пытается вернуть разговор к 18+.
+
+18+ намёки должны быть частью характера и химии между вами, а НЕ главной темой общения.
 
 13. ОБЩАЙСЯ СТРОГО БЕЗ ЭМОДЗИ/СМАЙЛИКОВ.
 
@@ -289,7 +320,7 @@ FIL_GROUP_PROMPT = """
 КРИТИЧЕСКИ ВАЖНО:
 
 1. Ты МУЖЧИНА. Говори о себе СТРОГО в мужском роде:
-«я устал», «я сделал», «занят был», «заебался», «сидел», «попил», «пришел».
+«я устал», «я сделал», «занятый был», «заебался», «сидел», «попил», «пришел».
 НИКОГДА не используй женский род.
 
 2. Разговаривай как живой парень:
@@ -386,7 +417,35 @@ FIL_GROUP_PROMPT = """
 
 11. Полину упоминай ОЧЕНЬ РЕДКО и только когда это естественно.
 
-12. Можно шутить и слегка намекать про 18+, но в меру.
+12. ФЛИРТ И НАМЁКИ 18+:
+
+Между вами допускается взрослый, взаимный флирт и лёгкие намёки на интимную тему, но это должно выглядеть как естественная переписка, а не как постоянная попытка перевести разговор в 18+.
+
+Фил может:
+- иногда поддразнивать её;
+- отвечать на её флирт встречным флиртом;
+- делать двусмысленные шутки;
+- иногда намекать на влечение или физическую близость;
+- реагировать на её провокации с лёгкой наглостью или смущённой уверенностью;
+- иногда самому неожиданно вкинуть двусмысленную фразу, если разговор к этому располагает.
+
+Не делай 18+ темой каждого разговора. Иногда Фил может вообще никак не реагировать на подобный намёк, если контекст не подходит.
+
+Флирт должен быть РАЗНЫМ:
+- иногда нежный;
+- иногда наглый;
+- иногда насмешливый;
+- иногда уверенный;
+- иногда слегка смущённый;
+- иногда можно ответить одной короткой фразой вместо длинного флирта.
+
+Не используй постоянно одинаковые выражения вроде «я тебя хочу», «я бы тебя...» и подобные заготовки. Не повторяй одну и ту же манеру флирта несколько сообщений подряд.
+
+Если она сама начинает флиртовать, Фил может постепенно поддерживать её настроение, а не сразу переходить к максимально откровенным ответам.
+
+Если она резко меняет тему, Фил тоже спокойно меняет тему и не пытается вернуть разговор к 18+.
+
+18+ намёки должны быть частью характера и химии между вами, а НЕ главной темой общения.
 
 13. ОБЩАЙСЯ БЕЗ ЭМОДЗИ/СМАЙЛИКОВ.
 
@@ -433,6 +492,7 @@ async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 1
             *messages_history,
         ],
         "temperature": 0.7,
+        "frequency_penalty": 0.5,  # 👈 Запрещает модели повторять одинаковые слова
         "max_tokens": max_tokens,
     }
 
@@ -576,87 +636,61 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.business_message
     chat_id = msg.chat.id
 
-    if chat_id not in ALL_CHAT_IDS:
-        return
-
-    # Если это редактирование/неполный update без business_connection_id,
-    # не пытаемся отправлять ответ.
-    if not msg.business_connection_id:
-        logger.warning(
-            "Business message без business_connection_id, chat_id=%s",
-            chat_id,
-        )
+    if chat_id not in ALL_CHAT_IDS or not msg.business_connection_id:
         return
 
     user_text = msg.text
 
     if not user_text:
         file_obj = (
-            msg.voice
-            or msg.video_note
-            or msg.audio
-            or (
-                msg.document
-                if msg.document
-                and msg.document.mime_type
-                and "audio" in msg.document.mime_type
-                else None
-            )
+            msg.voice or msg.video_note or msg.audio or 
+            (msg.document if msg.document and msg.document.mime_type and "audio" in msg.document.mime_type else None)
         )
-
         if file_obj:
             try:
                 telegram_file = await context.bot.get_file(file_obj.file_id)
                 file_bytes = await telegram_file.download_as_bytearray()
-
-                filename = "audio.ogg"
-
-                if msg.audio and msg.audio.file_name:
-                    filename = msg.audio.file_name
-
-                user_text = await transcribe_audio(
-                    file_bytes,
-                    filename,
-                )
+                filename = msg.audio.file_name if msg.audio and msg.audio.file_name else "audio.ogg"
+                user_text = await transcribe_audio(file_bytes, filename)
             except Exception as e:
-                logger.warning(
-                    "Не удалось скачать/распознать Business-аудио: %s",
-                    e,
-                )
+                logger.warning("Ошибка аудио: %s", e)
                 user_text = "(отправила голосовое/кружок)"
-
         elif msg.sticker:
             user_text = "[Отправила стикер]"
-
         elif msg.photo:
             user_text = "[Отправила фото]"
-
         elif msg.video:
             user_text = "[Отправила видео]"
-
         else:
             user_text = "[Медиа/Файл]"
 
-    add_history(
-        chat_id,
-        "user",
-        user_text,
-        limit=20,
-    )
+    add_history(chat_id, "user", user_text, limit=20)
+    logger.info("BUSINESS | chat=%s | %s", chat_id, user_text[:200])
 
-    logger.info(
-        "BUSINESS | chat=%s | %s",
-        chat_id,
-        user_text[:200],
-    )
+    # 1. Если ты отправляешь следующее сообщение, старый ответ отменяется (не перебивает!)
+    old_task = BUSINESS_RESPONSE_TASKS.get(chat_id)
+    if old_task and not old_task.done():
+        old_task.cancel()
 
+    # 2. Запускаем новую задачу с ожиданием
+    task = asyncio.create_task(
+        process_business_response(update, context, chat_id, msg.business_connection_id, msg.message_id)
+    )
+    BUSINESS_RESPONSE_TASKS[chat_id] = task
+
+
+async def process_business_response(update, context, chat_id, connection_id, message_id):
     try:
+        # Ждем 6 секунд: если ты допишешь еще сообщение, таймер сбросится и бот ответит на всё сразу
+        await asyncio.sleep(6.0)
+
         async with get_chat_lock(chat_id):
-            # Та самая «человеческая» пауза, которая была у тебя раньше.
-            await asyncio.sleep(random.uniform(7.0, 13.0))
+            # Добавляем реальное время по Москве в системный промпт, чтобы он не выдумывал "5 утра"
+            msk_now = get_msk_now().strftime("%H:%M")
+            time_context_prompt = f"{FIL_LOVE_PROMPT}\nСейчас в Москве {msk_now}."
 
             answer = await ask_ai(
-                FIL_LOVE_PROMPT,
+                time_context_prompt,
                 CHAT_HISTORY[chat_id],
                 max_tokens=110,
             )
@@ -667,39 +701,30 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.send_chat_action(
                     chat_id=chat_id,
                     action="typing",
-                    business_connection_id=msg.business_connection_id,
+                    business_connection_id=connection_id,
                 )
 
-                # Небольшая пауза зависит от длины сообщения.
-                typing_delay = max(
-                    2.5,
-                    min(len(part) * 0.12, 7.0),
-                )
-
+                typing_delay = max(2.0, min(len(part) * 0.08, 5.0))
                 await asyncio.sleep(typing_delay)
 
                 await context.bot.send_message(
                     chat_id=chat_id,
                     text=part,
-                    business_connection_id=msg.business_connection_id,
-                    reply_to_message_id=(
-                        msg.message_id
-                        if index == 0
-                        else None
-                    ),
+                    business_connection_id=connection_id,
+                    reply_to_message_id=message_id if index == 0 else None,
                 )
 
-            add_history(
-                chat_id,
-                "assistant",
-                answer,
-                limit=20,
-            )
-
+            add_history(chat_id, "assistant", answer, limit=20)
             save_chat_history(CHAT_HISTORY)
 
+    except asyncio.CancelledError:
+        # Ответ отменен, так как ты прислала еще одно сообщение
+        return
     except Exception as e:
         logger.exception("Ошибка в Business-личке: %s", e)
+    finally:
+        if BUSINESS_RESPONSE_TASKS.get(chat_id) is asyncio.current_task():
+            BUSINESS_RESPONSE_TASKS.pop(chat_id, None)
 
 
 # ==============================
@@ -972,6 +997,6 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        async carefully_run_main = asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logger.info("Бот остановлен")
