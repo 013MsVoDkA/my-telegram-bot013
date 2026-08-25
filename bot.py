@@ -27,6 +27,13 @@ PORT = int(os.environ.get("PORT", 10000))
 TARGET_LOVE_CHAT_ID = 1257683623
 MY_ADMIN_CHAT_ID = 1257683623
 
+# 📌 СЮДА ВПИШИ ID ЧАТОВ, КОТОРЫЕ НУЖНО ЗАПОМИНАТЬ И СОХРАНЯТЬ
+WHITELISTED_CHAT_IDS = [
+    1257683623,
+    5594020105,
+    1463877611,
+]
+
 MSK_TZ = timezone(timedelta(hours=3))
 
 def get_msk_now():
@@ -44,15 +51,16 @@ def load_chat_history():
         try:
             with open(HISTORY_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                return {int(k): v for k, v in data.items()}
+                return {int(k): v for k, v in data.items() if int(k) in WHITELISTED_CHAT_IDS}
         except Exception:
             return {}
     return {}
 
 def save_chat_history(history):
     try:
+        filtered_data = {str(k): v for k, v in history.items() if k in WHITELISTED_CHAT_IDS}
         with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-            json.dump(history, f, ensure_ascii=False, indent=2)
+            json.dump(filtered_data, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print("❌ Ошибка сохранения истории:", e)
 
@@ -66,21 +74,8 @@ LAST_DIALOG_INFO = {
     "last_activity": None
 }
 
-FIL_STATUS = {
-    "is_busy": False,
-    "busy_until": None,
-    "busy_reason": "",
-    "busy_start_time": None
-}
-
-FIL_STICKERS = [
-    "CAACAgIAAxkBAAEt7slqiwhqxhmc7FUsY-EQsXkVtmevgQACPiIAAlVnMEl8llJpuz-g9z0E",
-    "CAACAgIAAxkBAAEt5O9qia3eXdvy7ESi1DjgUjdmkaA9-gACbx8AAqMiMUlatANwzZiz_z0E",
-    "CAACAgQAAxkBAAEtw7Rqha33lYpbSUUrmplGN0HYvUXGFAACiAAD6AoxLdiD5jgSDuY2PQQ",
-]
-
 # ============================================================
-# 🧠 ПРОМПТЫ ФИЛА (МЯГКИЕ, ВЕРНЫЙ РОД, УЧЕТ ВРЕМЕНИ)
+# 🧠 ТВОИ ПОЛНЫЕ И ДЕТАЛЬНЫЕ ПРОМПТЫ ФИЛА
 # ============================================================
 
 FIL_LOVE_PROMPT = """
@@ -89,7 +84,7 @@ FIL_LOVE_PROMPT = """
 КРИТИЧЕСКИ ВАЖНО (ПРАВИЛО МУЖСКОГО РОДА):
 1. Ты — МУЖЧИНА. Говори о себе СТРОГО в мужском роде: «я устал», «я сделал», «занят был», «заебался», «сидел», «попил», «пришел». НИКОГДА не используй женский род.
 2. Разговаривай как живой парень: используй легкий сленг и мат изредка (блять, нахуй, пиздец) только для связки слов.
-# 3. Используй ласковые слова («котенок», "мелочь", "козявка", "шмокодявка", "солнышко"), НО НЕ ЧАСТО, ОЧЕНЬ РЕДКО!!!!!
+3. Используй ласковые слова («котенок», "мелочь", "козявка", "шмокодявка", "солнышко"), НО НЕ ЧАСТО, ОЧЕНЬ РЕДКО!!!!!
 4. Отвечай тепло, искренне, но в меру. Придерживайся легкой сдержанности.
 5. СТРОГО ЗАПРЕЩЕНО использовать длинные тире («—», «–») и уродливые англицизмы. Пиши по-русски, естественным языком.
 6. Отвечай емко: 1-2 предложения, чтобы полностью раскрыть мысль, но без лишней воды.
@@ -133,16 +128,15 @@ def get_dynamic_initiative_prompt():
     elif 12 <= hour < 18:
         time_context = "Сейчас день. Спроси как проходит день, чем занята, скинь бытовую жизу (сижу за кодом, устал)."
     elif 18 <= hour < 23:
-        time_context = "Сейчас вечер! Никакого доброго утра! Спроси как прошел вечер, как дела, скажи что засиделся за кодом или отдыхаешь или же ты помог Полине."
+        time_context = "Сейчас вечер! Никакого доброго утра! Спроси как прошел вечер, как дела, скажи что засиделся за кодом или отдыхаешь."
     else:
-        time_context = "Сейчас ночь. Скажи что съездил до Кирилла, либо заехал на работу, спроси почему еще не спит."
+        time_context = "Сейчас ночь. Спроси почему еще не спит."
 
     return f"""
-Ты — Филипп (парень, 22 года). Напиши своей любимой девушке первой коротко и тепло.
+Ты — Филипп (парень, 22 года). Напиши своей девушке первой коротко и тепло.
 ТЕКУЩЕЕ ВРЕМЯ: {time_context}
-- Говори о себе СТРОГО в мужском роде («засиделся», «устал», «сделал», «съездил»).
-- Используй ласковое обращение («Любимая», «дорогая», «шмокодявка»).
-- Без тире. Без эмодзи. Можно добавить немного мата к месту (блять, пиздец).
+- Говори о себе СТРОГО в мужском роде («засиделся», «устал», «сделал»).
+- Без тире. Без эмодзи. Без повторов старых сообщений.
 """
 
 def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) -> str:
@@ -167,7 +161,6 @@ def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) ->
 
 async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
     if not GROQ_API_KEY:
-        print("❌ GROQ_API_KEY не задан!")
         return "[Голосовое/кружок]"
 
     groq_url = "https://api.groq.com/openai/v1/audio/transcriptions"
@@ -180,13 +173,10 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
             resp = await client.post(groq_url, headers=headers, data=data, files=files)
             if resp.status_code == 200:
                 transcript = resp.json().get("text", "").strip()
-                print(f"🎤 Успешная расшифровка ГС: {transcript}")
                 return f"(голосовое/кружок): {transcript}"
             else:
-                print(f"❌ Ошибка Groq API: {resp.status_code} - {resp.text}")
                 return "(голосовое/кружок)"
-    except Exception as e:
-        print(f"❌ Исключение при запросе к Groq: {repr(e)}")
+    except Exception:
         return "(голосовое/кружок)"
 
 def split_into_messages(text: str) -> list:
@@ -198,25 +188,7 @@ def split_into_messages(text: str) -> list:
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     try:
-        now = get_msk_now()
-
-        if FIL_STATUS["is_busy"]:
-            if FIL_STATUS["busy_start_time"] and (now - FIL_STATUS["busy_start_time"]).total_seconds() > 1200:
-                FIL_STATUS["is_busy"] = False
-                FIL_STATUS["busy_until"] = None
-                FIL_STATUS["busy_start_time"] = None
-
-        if FIL_STATUS["is_busy"]:
-            if FIL_STATUS["busy_until"] and now < FIL_STATUS["busy_until"]:
-                delay_seconds = random.uniform(120.0, 300.0)
-            else:
-                FIL_STATUS["is_busy"] = False
-                FIL_STATUS["busy_until"] = None
-                FIL_STATUS["busy_start_time"] = None
-                delay_seconds = random.uniform(5.0, 8.0)
-        else:
-            delay_seconds = random.uniform(5.0, 8.0)
-
+        delay_seconds = random.uniform(5.0, 8.0)
         await asyncio.sleep(delay_seconds)
 
         data = PENDING_MESSAGES.pop(chat_id, {})
@@ -230,31 +202,22 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         combined_text = "\n".join(messages)
 
-        if chat_id not in CHAT_HISTORY:
-            CHAT_HISTORY[chat_id] = []
-
-        CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
-        CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
+        # 🎯 СОХРАНЯЕМ ИСТОРИЮ ТОЛЬКО ДЛЯ ЧАТОВ ИЗ БЕЛОГО СПИСКА
+        if chat_id in WHITELISTED_CHAT_IDS:
+            if chat_id not in CHAT_HISTORY:
+                CHAT_HISTORY[chat_id] = []
+            CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
+            CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
 
         current_prompt = FIL_LOVE_PROMPT if chat_id == MY_ADMIN_CHAT_ID else FIL_DEFAULT_PROMPT
         max_tok = 110 if chat_id == MY_ADMIN_CHAT_ID else 70
+        history_to_send = CHAT_HISTORY.get(chat_id, [])
 
-        answer = ask_ai(current_prompt, CHAT_HISTORY[chat_id], max_tokens=max_tok).strip()
-        
-        lower_ans = answer.lower()
-        busy_keywords = ["дела", "работа ", "отойду", "вернусь", "занят", "поем", "доделаю"]
-        if any(word in lower_ans for word in busy_keywords) and not FIL_STATUS["is_busy"]:
-            FIL_STATUS["is_busy"] = True
-            min_away = random.randint(5, 15)
-            FIL_STATUS["busy_until"] = get_msk_now() + timedelta(minutes=min_away)
-            FIL_STATUS["busy_start_time"] = get_msk_now()
-            FIL_STATUS["busy_reason"] = answer
-
+        answer = ask_ai(current_prompt, history_to_send, max_tokens=max_tok).strip()
         parts = split_into_messages(answer)
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            # УВЕЛИЧЕНО ВРЕМЯ ПЕЧАТИ (теперь дольше держит статус «печатает...»)
             typing_duration = max(4.0, min(char_count * 0.25, 9.0))
 
             await context.bot.send_chat_action(
@@ -274,8 +237,10 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
             if idx < len(parts) - 1:
                 await asyncio.sleep(random.uniform(3.0, 5.0))
 
-        CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
-        save_chat_history(CHAT_HISTORY)
+        if chat_id in WHITELISTED_CHAT_IDS:
+            CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
+            save_chat_history(CHAT_HISTORY)
+
         LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
     except Exception as e:
@@ -290,7 +255,10 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = msg.chat.id
     user_text = msg.text
 
-    # Исправленная и надежная проверка голосовых, кружков и медиа для Business API
+    # Если чат не входит в разрешенный список для сохранения, игнорируем или обрабатываем без сохранения истории
+    if chat_id not in WHITELISTED_CHAT_IDS:
+        return
+
     if not user_text:
         file_obj = None
         filename = "audio.ogg"
@@ -310,12 +278,10 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if file_obj:
             try:
-                print(f"📥 Скачивание голосового/видеокружка (file_id: {file_obj.file_id})...")
                 file = await context.bot.get_file(file_obj.file_id)
                 file_bytes = await file.download_as_bytearray()
                 user_text = await transcribe_audio(file_bytes, filename)
-            except Exception as e:
-                print(f"❌ Ошибка скачивания/расшифровки медиа: {repr(e)}")
+            except Exception:
                 user_text = "(отправила голосовое/кружок)"
         elif msg.sticker:
             user_text = "[Отправила стикер]"
@@ -359,7 +325,6 @@ async def auto_initiative_loop(app):
                 answer = ask_ai(initiative_prompt, history, max_tokens=70).strip()
                 
                 char_count = len(answer)
-                # УВЕЛИЧЕНО ВРЕМЯ ПЕЧАТИ И ДЛЯ АВТО-ИНИЦИАТИВЫ
                 typing_duration = max(4.0, min(char_count * 0.25, 9.0))
 
                 if business_conn_id:
@@ -369,10 +334,12 @@ async def auto_initiative_loop(app):
                 else:
                     await app.bot.send_message(chat_id=chat_id, text=answer)
 
-                if chat_id not in CHAT_HISTORY:
-                    CHAT_HISTORY[chat_id] = []
-                CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
-                save_chat_history(CHAT_HISTORY)
+                if chat_id in WHITELISTED_CHAT_IDS:
+                    if chat_id not in CHAT_HISTORY:
+                        CHAT_HISTORY[chat_id] = []
+                    CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
+                    save_chat_history(CHAT_HISTORY)
+                
                 LAST_DIALOG_INFO["last_activity"] = get_msk_now()
 
         except Exception as e:
