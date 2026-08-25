@@ -870,7 +870,7 @@ async def main():
         await web_runner.cleanup()
 
 
-if name == "__main__":
+if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
