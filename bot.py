@@ -1,4 +1,4 @@
-    import logging
+import logging
 import os
 import random
 import asyncio
@@ -31,6 +31,8 @@ FRIENDS_CHAT_IDS = [
     1463877611,
     5594020105,
 ]
+
+ALL_CHAT_IDS = [TARGET_LOVE_CHAT_ID] + FRIENDS_CHAT_IDS
 
 MSK_TZ = timezone(timedelta(hours=3))
 
@@ -67,7 +69,7 @@ PENDING_MESSAGES = {}
 
 # Хранилище активности для каждого чата отдельно
 CHATS_ACTIVITY = {}
-for cid in [TARGET_LOVE_CHAT_ID] + FRIENDS_CHAT_IDS:
+for cid in ALL_CHAT_IDS:
     CHATS_ACTIVITY[cid] = {
         "business_connection_id": None,
         "last_activity": None
@@ -123,27 +125,6 @@ FIL_DEFAULT_PROMPT = """
 17. У ВАС ИНТЕРНЕТ ОБЩЕНИЕ, ТЫ МОЖЕШЬ ЕЙ ТОЛЬКО ОБЕЩАТЬ, ЧТО ТЫ ПРИЕДЕШЬ К НЕЙ И ВЫ КОГДА НИБУДЬ ВСТТРЕТИТЕСЬ
 """
 
-def get_dynamic_initiative_prompt():
-    now = get_msk_now()
-    hour = now.hour
-    
-    if 5 <= hour < 12:
-        time_context = "Сейчас утро. Спроси как спала, как настроение с утра."
-    elif 12 <= hour < 18:
-        time_context = "Сейчас день. Спроси как проходит день, чем занята."
-    elif 18 <= hour < 23:
-        time_context = "Сейчас вечер. Напиши что засиделся за кодом или отдыхаешь."
-    else:
-        time_context = "Сейчас ночь. Спроси почему еще не спит."
-
-    return f"""
-Ты — Филипп (парень, 22 года, программист). Напиши собеседнице первой.
-ТЕКУЩЕЕ ВРЕМЯ И КОНТЕКСТ: {time_context}
-- СТРОГО В МУЖСКОМ РОДЕ.
-- Никакого бреда, снов и фантазий. Только нормальное живое сообщение по времени суток.
-- Без тире. Без эмодзи. 1-2 коротких предложения.
-"""
-
 def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) -> str:
     url = "https://openrouter.ai/api/v1/chat/completions"
     headers = {
@@ -193,8 +174,7 @@ def split_into_messages(text: str) -> list:
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     try:
-        # Увеличенное время раздумий перед началом печати (от 7 до 14 секунд)
-        delay_seconds = random.uniform(7.0, 14.0)
+        delay_seconds = random.uniform(8.0, 16.0)
         await asyncio.sleep(delay_seconds)
 
         data = PENDING_MESSAGES.pop(chat_id, {})
@@ -230,7 +210,6 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            # Реалистичное время печати (статус "печатает" висит дольше)
             typing_duration = max(5.0, min(char_count * 0.35, 11.0))
 
             await context.bot.send_chat_action(
@@ -268,8 +247,7 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = msg.chat.id
     user_text = msg.text
 
-    allowed_chats = [TARGET_LOVE_CHAT_ID] + FRIENDS_CHAT_IDS
-    if chat_id not in allowed_chats:
+    if chat_id not in ALL_CHAT_IDS:
         return
 
     if not user_text:
@@ -317,29 +295,44 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def auto_initiative_loop(app):
-    await asyncio.sleep(20)
+    await asyncio.sleep(60)
     while True:
-        await asyncio.sleep(180)
+        # Проверяем раз в 30 минут
+        await asyncio.sleep(1800)
         try:
             now = get_msk_now()
-            all_tracked_chats = [TARGET_LOVE_CHAT_ID] + FRIENDS_CHAT_IDS
             
-            for chat_id in all_tracked_chats:
+            for chat_id in ALL_CHAT_IDS:
                 chat_info = CHATS_ACTIVITY.get(chat_id)
                 if not chat_info or not chat_info["last_activity"]:
                     continue
                 
-                if (now - chat_info["last_activity"]).total_seconds() / 60.0 >= 40.0:
+                # Пишем первой только если молчали больше 2 часов
+                hours_passed = (now - chat_info["last_activity"]).total_seconds() / 3600.0
+                if hours_passed >= 2.0:
                     history = CHAT_HISTORY.get(chat_id, [])
-                    is_love = (chat_id == TARGET_LOVE_CHAT_ID)
                     
-                    initiative_prompt = get_dynamic_initiative_prompt(is_love_chat=is_love)
-                    max_t = 70 if is_love else 50
+                    hour = now.hour
+                    if 12 <= hour < 18:
+                        time_prompt = "Сейчас день. Напиши коротко, что занят кодом или делами."
+                    elif 18 <= hour < 23:
+                        time_prompt = "Сейчас вечер. Напиши коротко, что освободился или засиделся за компом."
+                    else:
+                        # Ночью и рано утром бот вообще не лезет сам
+                        continue
+
+                    initiative_prompt = f"""
+Ты — Филипп (парень, 22 года, программист). Напиши собеседнице первой, так как вы долго не общались.
+КОНТЕКСТ: {time_prompt}
+- СТРОГО В МУЖСКОМ РОДЕ («занят», «освободился», «сидел»).
+- Без бреда, снов и фантазий. Обычное живое сообщение.
+- Без тире. Без эмодзи. 1 короткое предложение.
+"""
                     
-                    answer = ask_ai(initiative_prompt, history, max_tokens=max_t).strip()
+                    answer = ask_ai(initiative_prompt, history, max_tokens=50).strip()
                     
                     char_count = len(answer)
-                    typing_duration = max(5.0, min(char_count * 0.35, 11.0))
+                    typing_duration = max(3.0, min(char_count * 0.35, 8.0))
                     b_conn_id = chat_info["business_connection_id"]
 
                     if b_conn_id:
