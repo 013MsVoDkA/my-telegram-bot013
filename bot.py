@@ -367,7 +367,7 @@ async def main():
 
     await app.initialize()
     await app.start()
-    app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
     
     stop_event = asyncio.Event()
     await stop_event.wait()
@@ -375,5 +375,5 @@ async def main():
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except (KeyboardInterrupt, SystemIntent if 'SystemIntent' in globals() else SystemExit):
+    except (KeyboardInterrupt, SystemExit):
         pass
