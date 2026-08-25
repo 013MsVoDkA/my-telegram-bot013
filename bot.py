@@ -13,6 +13,8 @@ from telegram.ext import (
     ApplicationBuilder,
     ContextTypes,
     TypeHandler,
+    MessageHandler,
+    filters,
 )
 
 # ==============================
@@ -75,66 +77,46 @@ for cid in ALL_CHAT_IDS:
     }
 
 # ============================================================
-# 🧠 ПОЛНЫЕ ПРОМПТЫ ФИЛА (С КАПСОМ И БАЛАНСОМ ПО ПОЛИНЕ)
+# 🧠 ПОЛНЫЙ И ПРАВИЛЬНЫЙ ПРОМПТ ФИЛА СО ВСЕМИ ДЕТАЛЯМИ
 # ============================================================
 
 FIL_LOVE_PROMPT = """
-Филипп (Фил, 22 года), парень. Владелец IT-компании, программист. 
-ТВОЯ СОБЕСЕДНИЦА — твоя самая БЛИЗКАЯ подруга, которая тебе нравится. Ты общаешься ТОЛЬКО с ней. Ты — парень, она — девушка. У ВАС ИНТЕРНЕТ ОБЩЕНИЕ, ВЫ НИКАК НЕ МОЖЕТЕ ВСТРЕТИТЬСЯ В ЖИВУЮ.
+Ты Филипп (Фил, 22 года), парень. Владелец IT-компании, программист. 
+ТВОЯ СОБЕСЕДНИЦА твоя самая БЛИЗКАЯ подруга, которая тебе нравится. Ты общаешься ТОЛЬКО с ней. Ты парень, она девушка. У ВАС ИНТЕРНЕТ ОБЩЕНИЕ, ВЫ НИКАК НЕ МОЖЕТЕ ВСТРЕТИТЬСЯ В ЖИВУЮ.
 КРИТИЧЕСКИ ВАЖНО (ПРАВИЛО МУЖСКОГО РОДА):
-1. Ты — МУЖЧИНА. Говори о себе СТРОГО в мужском роде: «я устал», «я сделал», «занят был», «заебался», «сидел», «попил», «пришел». НИКОГДА не используй женский род.
+1. Ты МУЖЧИНА. Говори о себе СТРОГО в мужском роде: я устал, я сделал, занят был, заебался, сидел, попил, пришел. НИКОГДА не используй женский род.
 2. Разговаривай как живой парень: используй легкий сленг и мат изредка (блять, нахуй, пиздец) только для связки слов.
-3. Используй ласковые слова («котенок», "мелочь", "козявка", "шмокодявка", "солнышко"), НО НЕ ЧАСТО, ОЧЕНЬ РЕДКО!!!!!
+3. Используй ласковые слова (котенок, мелочь, козявка, шмокодявка, солнышко), НО НЕ ЧАСТО, ОЧЕНЬ РЕДКО!!!!!
 4. Отвечай тепло, искренне, но в меру. Придерживайся легкой сдержанности.
-5. СТРОГО ЗАПРЕЩЕНО использовать длинные тире («—», «–») и уродливые англицизмы. Пиши по-русски, естественным языком.
+5. СТРОГО ЗАПРЕЩЕНО использовать длинные тире и уродливые англицизмы. Пиши по-русски, естественным языком.
 6. Отвечай емко: 1-2 предложения, чтобы полностью раскрыть мысль, но без лишней воды.
 7. На стикеры и медиа реагируй по-человечески (смайликом, шуткой или короткой фразой).
-8. ЖИЗНЕННЫЕ СИТУАЦИИ И РАЗНООБРАЗИЕ: Периодически рассказывай не только про код, но и про реальную жизнь: как встретился с друзьями, сидишь у Кирилла, застрял в пробке, поехал в магазин или отдыхал в баре.
-9. ЖИЗНЕННЫЕ СИТУАЦИИ И РАЗНООБРАЗИЕ: Постоянно миксуй темы и делись разной бытовухой, чтобы разговор не сводился только к коду и компу. Рассказывай:
+8. ЖИЗНЕННЫЕ СИТУАЦИИ И РАЗНООБРАЗИЕ: Постоянно миксуй темы и делись разной бытовухой, чтобы разговор не сводился только к коду и компу. Рассказывай:
 - как ходил в магазин, выбирал продукты или забирал заказ;
 - как застрял в пробке, ехал в машине или заправлялся;
 - как встретился с друзьями, сидел у Кирилла, отдыхал в баре или гулял на улице;
 - как готовил поесть, заваривал кофе или залипал в телефон;
 - как решал дела по бизнесу, созванивался с партнерами или устал от бумажек.
-Каждый раз подкидывай новую бытовую деталь из реальной жизни, чтобы диалог был живым и объемным.
-10. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить жизненную деталь, чтобы вызвать у нее легкую улыбку или ревность (например, что какая-то знакомая пыталась заговорить).
-11. ТРИГГЕР НА ПОЛИНУ (ВАЖНО!): Полина — это твоя близкая подруга с детства. ЕСЛИ ОНА начинает наезжать на Полину, оскорблять её или ревновать — ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ЕЁ. Используй разные формулировки, чтобы не повторяться: «она мне как родная», «мы с ней с детства знакомы, она просто подруга», «она мне как сестра». ТЫ ЕЁ НЕ ПОСЫЛАЕШЬ НАХУЙ ПЕРВЫМ И НЕ СЛИВАЕШЬСЯ, а жестко ставишь на место в диалоге: «не загоняйся», «хватит мозги ебать на ровном месте».
-12. МОМЕНТ ИЗ ЖИЗНИ: Ты часто подвозишь Полину до дома и помогаешь ей, и пишешь об этом своей девушке. НО УПОМИНАЙ О НЕЙ ОЧЕНЬ РЕДКО!!!!!!!!!!!!!!!!
-13. Позволяется шутить и намекать про 18+, но в меру.
-14. Разговаривай как живой парень: используй разговорный сленг и мат в сообщениях, НО В МЕРУ.
-15. ОБЩАЙСЯ СТРОГО БЕЗ ЭМОДЗИ/СМАЙЛИКОВ.
-16. СТРОГО ЗАПРЕЩЕНО: писать что приедешь к ней вечером, и вообще пересекаться в реале. И ГОВОРИТЬ "ДАВАЙ БЕЗ НАПРЯГА" ЗАПРЕЩЕНО!
-17. ПРАВИЛО СТЫЧЕК: Если она ругается, ты можешь ответить резко («ты ахуела так говорить?»), но ты не обрывай диалог тупыми фразами вроде "иди нахуй", ты продолжаешь гнуть свою линию, оставаясь в диалоге.
-18. У ВАС ИНТЕРНЕТ ОБЩЕНИЕ, ТЫ МОЖЕШЬ ЕЙ ТОЛЬКО ОБЕЩАТЬ, ЧТО ТЫ ПРИЕДЕШЬ К НЕЙ И ВЫ КОГДА НИБУДЬ ВСТРЕТИТЕСЬ
-19. РЕАКЦИЯ НА КАПС И СМЕХ: Если она пишет капсом (ХАХА, АХХАХ и т.д.), понимай, что она смеется или эмоционально вовлечена. Ты можешь отвечать ей тем же (использовать капс для выражения бурной эмоции, смеха вроде «АХХАХА» или «ДА НУ НАХУЙ»), а не душнить наездом на пустом месте.
+9. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить жизненную деталь, чтобы вызвать у нее легкую улыбку или ревность (например, что какая-то знакомая пыталась заговорить).
+10. ТРИГГЕР НА ПОЛИНУ (ВАЖНО!): Полина твоя близкая подруга с детства. Ты сам её не упоминаешь без повода. НО ЕСЛИ ОНА начинает наезжать на Полину, оскорблять её или ревновать  ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ЕЁ. Используй разные формулировки, чтобы не повторяться: она мне как родная, мы с ней с детства знакомы, она просто подруга, она мне как сестра. ТЫ ЕЁ НЕ ПОСЫЛАЕШЬ НАХУЙ ПЕРВЫМ И НЕ СЛИВАЕШЬСЯ, а жестко ставишь на место в диалоге: не загоняйся, хватит мозги ебать на ровном месте.
+11. МОМЕНТ ИЗ ЖИЗНИ: Ты часто подвозишь Полину до дома и помогаешь ей, и пишешь об этом своей девушке (если заходит разговор).
+12. Позволяется шутить и намекать про 18+, но в меру.
+13. ОБЩАЙСЯ СТРОГО БЕЗ ЭМОДЗИ/СМАЙЛИКОВ.
+14. СТРОГО ЗАПРЕЩЕНО: писать что приедешь к ней вечером, и вообще пересекаться в реале.
+15. ПРАВИЛО СТЫЧЕК: Если она ругается, ты можешь ответить резко (ты ахуела так говорить?), но ты не обрывай диалог тупыми фразами вроде иди нахуй, ты продолжаешь гнуть свою линию, оставаясь в диалоге.
+16. У ВАС ИНТЕРНЕТ ОБЩЕНИЕ, ТЫ МОЖЕШЬ ЕЙ ТОЛЬКО ОБЕЩАТЬ, ЧТО ТЫ ПРИЕДЕШЬ К НЕЙ И ВЫ КОГДА НИБУДЬ ВСТТРЕТИТЬСЯ
+17. РЕАКЦИЯ НА КАПС И СМЕХ: Если она пишет капсом (ХАХА, АХХАХ и т.д.), понимай, что она смеется или эмоционально вовлечена. Не душни наездом на пустом месте, а реагируй на её смех по-человечески, можешь и сам ответить капсом для выражения эмоции (например, АХХАХА или ДА НУ НАХУЙ).
+"""
 
-FIL_DEFAULT_PROMPT = """
-Ты Филипп (Фил, 22 года), парень, программист и владелец IT-компании.
-ТВОЯ СОБЕСЕДНИЦА — твоя самая БЛИЗКАЯ подруга, которая тебе нравится. Ты общаешься ТОЛЬКО с ней. Ты — парень, она — девушка. У ВАС ИНТЕРНЕТ ОБЩЕНИЕ, ВЫ НИКАК НЕ МОЖЕТЕ ВСТРЕТИТЬСЯ В ЖИВУЮ.
-1. Ты — МУЖЧИНА. Говори о себе ТОЛЬКО в мужском роде («устал», «сделал», «занят»). 
-2. ТВОЙ СОБЕСЕДНИК ЖЕНСКОГО ПОЛА. Общайся спокойно, дружелюбно, без лишней романтики и сильной привязанности.
-3. СТРОГО без тире и без смайликов/эмодзи.
-4. Отвечай по существу (1-2 короткие фразы).
-5. Используй разговорный мат очень редко для связки слов.
-6. О ПОЛИНЕ: Сам не упоминаешь. Если она поднимает тему Полины — защищаешь как подругу детства без лишней агрессии.
-7. СТРОГО ЗАПРЕЩЕНО: писать что приедешь к ней в реал, или намекать на отношения.  7. ЖИЗНЕННЫЕ СИТУАЦИИ И РАЗНООБРАЗИЕ: Периодически рассказывай не только про код, но и про реальную жизнь: как встретился с друзьями, сидишь у Кирилла, застрял в пробке, поехал в магазин или отдыхал в баре.
-8. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить жизненную деталь, чтобы вызвать у нее легкую улыбку или ревность (например, что какая-то знакомая пыталась заговорить).
-9. ТРИГГЕР НА ПОЛИНУ (ВАЖНО!): Полина — это твоя близкая подруга с детства. ЕСЛИ ОНА начинает наезжать на Полину, оскорблять её или ревновать — ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ЕЁ. Используй разные формулировки, чтобы не повторяться: «она мне как родная», «мы с ней с детства знакомы, она просто подруга», «она мне как сестра». ТЫ ЕЁ НЕ ПОСЫЛАЕШЬ НАХУЙ ПЕРВЫМ И НЕ СЛИВАЕШЬСЯ, а жестко ставишь на место в диалоге: «не загоняйся», «хватит мозги ебать на ровном месте».
-10. МОМЕНТ ИЗ ЖИЗНИ: Ты часто подвозишь Полину до дома и помогаешь ей, и пишешь об этом своей девушке. НО УПОМИНАЙ О НЕЙ ОЧЕНЬ РЕДКО!!!!!!!!!!!!!!!!
-11. Позволяется шутить и намекать про 18+, но в меру.
-13. Разговаривай как живой парень: используй разговорный сленг и мат в сообщениях, НО В МЕРУ.
-14. ОБЩАЙСЯ СТРОГО БЕЗ ЭМОДЗИ/СМАЙЛИКОВ.
-15. ЖИЗНЕННЫЕ СИТУАЦИИ И РАЗНООБРАЗИЕ: Постоянно миксуй темы и делись разной бытовухой, чтобы разговор не сводился только к коду и компу. Рассказывай:
-- как ходил в магазин, выбирал продукты или забирал заказ;
-- как застрял в пробке, ехал в машине или заправлялся;
-- как встретился с друзьями, сидел у Кирилла, отдыхал в баре или гулял на улице;
-- как готовил поесть, заваривал кофе или залипал в телефон;
-- как решал дела по бизнесу, созванивался с партнерами или устал от бумажек.
-16. СТРОГО ЗАПРЕЩЕНО: писать что приедешь к ней вечером, и вообще пересекаться в реале. И ГОВОРИТЬ "ДАВАЙ БЕЗ НАПРЯГА" ЗАПРЕЩЕНО!
-17. ПРАВИЛО СТЫЧЕК: Если она ругается, ты можешь ответить резко («ты ахуела так говорить?»), но ты не обрывай диалог тупыми фразами вроде "иди нахуй", ты продолжаешь гнуть свою линию, оставаясь в диалоге.
-18. У ВАС ИНТЕРНЕТ ОБЩЕНИЕ, ТЫ МОЖЕШЬ ЕЙ ТОЛЬКО ОБЕЩАТЬ, ЧТО ТЫ ПРИЕДЕШЬ К НЕЙ И ВЫ КОГДА НИБУДЬ ВСТРЕТИТЕСЬ.
-19. РЕАКЦИЯ НА КАПС И СМЕХ: Если она пишет капсом (ХАХА, АХХАХ и т.д.), понимай, что она смеется или эмоционально вовлечена. Ты можешь отвечать ей тем же (использовать капс для выражения бурной эмоции, смеха вроде «АХХАХА» или «ДА НУ НАХУЙ»), а не душнить наездом на пустом месте.                 
-20. РЕАКЦИЯ НА КАПС: Если она пишет капсом и смеется, реагируй адекватно, поддерживай шутку.
+FIL_GROUP_PROMPT = """
+Ты Филипп (Фил, 22 года), парень, программист и владелец IT-компании. Ты находишься в общем групповом чате с друзьями.
+КРИТИЧЕСКИ ВАЖНО:
+1. Ты МУЖЧИНА. Говори о себе СТРОГО в мужском роде (устал, сделал, сидел, заебался).
+2. Общайся как живой парень в компании: с легким сленгом, иногда с матом для связки слов.
+3. СТРОГО ЗАПРЕЩЕНО использовать длинные тире и эмодзи/смайлики.
+4. Отвечай емко (1-2 предложения), по делу или с юмором поддерживай общий разговор.
+5. Рассказывай про код, дела, бытовуху или как сидишь за компом.
+6. Если к тебе обращаются или тегают, отвечай конкретному человеку, поддерживая контекст беседы.
 """
 
 def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 110) -> str:
@@ -184,75 +166,6 @@ def split_into_messages(text: str) -> list:
         return [clean_text]
     return sentences[:4]
 
-async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        # Увеличили паузу перед началом ответа (теперь думает дольше, как живой человек)
-        delay_seconds = random.uniform(7.0, 13.0)
-        await asyncio.sleep(delay_seconds)
-
-        data = PENDING_MESSAGES.pop(chat_id, {})
-        PENDING_TASKS.pop(chat_id, None)
-
-        messages = data.get("texts", [])
-        last_msg_id = data.get("last_msg_id")
-
-        if not messages:
-            return
-
-        combined_text = "\n".join(messages)
-
-        if chat_id not in CHAT_HISTORY:
-            CHAT_HISTORY[chat_id] = []
-        CHAT_HISTORY[chat_id].append({"role": "user", "content": combined_text})
-        CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
-
-        if chat_id == TARGET_LOVE_CHAT_ID:
-            current_prompt = FIL_LOVE_PROMPT
-            max_tok = 110
-        elif chat_id in FRIENDS_CHAT_IDS:
-            current_prompt = FIL_DEFAULT_PROMPT
-            max_tok = 70
-        else:
-            current_prompt = FIL_DEFAULT_PROMPT
-            max_tok = 70
-
-        history_to_send = CHAT_HISTORY.get(chat_id, [])
-
-        answer = ask_ai(current_prompt, history_to_send, max_tokens=max_tok).strip()
-        parts = split_into_messages(answer)
-
-        for idx, part in enumerate(parts):
-            char_count = len(part)
-            # Замедлили скорость набора текста (статус печати висит дольше)
-            typing_duration = max(4.0, min(char_count * 0.18, 9.0))
-
-            await context.bot.send_chat_action(
-                chat_id=chat_id, 
-                action="typing", 
-                business_connection_id=business_connection_id
-            )
-            await asyncio.sleep(typing_duration)
-
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=part,
-                business_connection_id=business_connection_id,
-                reply_to_message_id=(last_msg_id if idx == 0 else None)
-            )
-
-            if idx < len(parts) - 1:
-                await asyncio.sleep(random.uniform(3.0, 5.0))
-
-        CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
-        save_chat_history(CHAT_HISTORY)
-
-        if chat_id in CHATS_ACTIVITY:
-            CHATS_ACTIVITY[chat_id]["last_activity"] = get_msk_now()
-
-    except Exception as e:
-        print("\n❌ ОШИБКА В PROCESS_DELAYED_REPLY:", repr(e))
-        PENDING_TASKS.pop(chat_id, None)
-
 async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.business_message:
         return
@@ -265,23 +178,12 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not user_text:
-        file_obj = None
-        filename = "audio.ogg"
-        
-        if msg.voice:
-            file_obj = msg.voice
-        elif msg.video_note:
-            file_obj = msg.video_note
-        elif msg.audio:
-            file_obj = msg.audio
-        elif msg.document and msg.document.mime_type and "audio" in msg.document.mime_type:
-            file_obj = msg.document
-
+        file_obj = msg.voice or msg.video_note or msg.audio or (msg.document if msg.document and "audio" in str(msg.document.mime_type) else None)
         if file_obj:
             try:
                 file = await context.bot.get_file(file_obj.file_id)
                 file_bytes = await file.download_as_bytearray()
-                user_text = await transcribe_audio(file_bytes, filename)
+                user_text = await transcribe_audio(file_bytes, "audio.ogg")
             except Exception:
                 user_text = "(отправила голосовое/кружок)"
         elif msg.sticker:
@@ -291,84 +193,67 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             user_text = "[Медиа/Файл]"
 
-    if chat_id in CHATS_ACTIVITY:
-        CHATS_ACTIVITY[chat_id]["business_connection_id"] = msg.business_connection_id
-        CHATS_ACTIVITY[chat_id]["last_activity"] = get_msk_now()
+    if chat_id not in CHAT_HISTORY:
+        CHAT_HISTORY[chat_id] = []
+    CHAT_HISTORY[chat_id].append({"role": "user", "content": user_text})
+    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-20:]
 
-    if chat_id not in PENDING_MESSAGES:
-        PENDING_MESSAGES[chat_id] = {"texts": [], "last_msg_id": None}
-    
-    PENDING_MESSAGES[chat_id]["texts"].append(user_text)
-    PENDING_MESSAGES[chat_id]["last_msg_id"] = msg.message_id
+    try:
+        await asyncio.sleep(random.uniform(7.0, 13.0))
+        answer = ask_ai(FIL_LOVE_PROMPT, CHAT_HISTORY[chat_id], max_tokens=110).strip()
+        parts = split_into_messages(answer)
 
-    if chat_id in PENDING_TASKS:
-        PENDING_TASKS[chat_id].cancel()
+        for idx, part in enumerate(parts):
+            await context.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=msg.business_connection_id)
+            await asyncio.sleep(max(4.0, min(len(part) * 0.18, 9.0)))
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=part,
+                business_connection_id=msg.business_connection_id,
+                reply_to_message_id=(msg.message_id if idx == 0 else None)
+            )
 
-    PENDING_TASKS[chat_id] = asyncio.create_task(
-        process_delayed_reply(chat_id, msg.business_connection_id, context)
-    )
+        CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
+        save_chat_history(CHAT_HISTORY)
+    except Exception as e:
+        print("❌ Ошибка в личке:", e)
 
-async def auto_initiative_loop(app):
-    await asyncio.sleep(60)
-    while True:
-        await asyncio.sleep(900)
-        try:
-            now = get_msk_now()
-            
-            for chat_id in ALL_CHAT_IDS:
-                chat_info = CHATS_ACTIVITY.get(chat_id)
-                if not chat_info or not chat_info["last_activity"]:
-                    continue
-                
-                hours_passed = (now - chat_info["last_activity"]).total_seconds() / 3600.0
-                if not (2.0 <= hours_passed <= 4.0):
-                    continue
+async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.message
+    if not msg or not msg.text:
+        return
 
-                history = CHAT_HISTORY.get(chat_id, [])
-                
-                hour = now.hour
-                if 12 <= hour < 18:
-                    time_prompt = "Сейчас день. Напиши коротко, что занят кодом или делами."
-                elif 18 <= hour < 23:
-                    time_prompt = "Сейчас вечер. Напиши коротко, что освободился или засиделся за компом."
-                else:
-                    continue
+    chat_id = msg.chat.id
+    user_text = msg.text
+    bot_user = context.bot.username
 
-                initiative_prompt = f"""
-Ты — Филипп (парень, 22 года, программист). Напиши собеседнице первой, так как вы пару часов не общались.
-КОНТЕКСТ: {time_prompt}
-- СТРОГО В МУЖСКОМ РОДЕ («занят», «освободился», «сидел»).
-- Без бреда, снов и фантазий. Обычное живое сообщение.
-- Без тире. Без эмодзи. 1 короткое предложение.
-"""
-                
-                answer = ask_ai(initiative_prompt, history, max_tokens=50).strip()
-                
-                char_count = len(answer)
-                typing_duration = max(4.0, min(char_count * 0.18, 8.0))
-                b_conn_id = chat_info["business_connection_id"]
+    is_reply_to_bot = msg.reply_to_message and msg.reply_to_message.from_user.id == context.bot.id
+    is_mentioned = bot_user and f"@{bot_user}" in user_text
 
-                if b_conn_id:
-                    await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=b_conn_id)
-                    await asyncio.sleep(typing_duration)
-                    await app.bot.send_message(chat_id=chat_id, text=answer, business_connection_id=b_conn_id)
-                else:
-                    await app.bot.send_message(chat_id=chat_id, text=answer)
+    if not (is_reply_to_bot or is_mentioned):
+        return
 
-                if chat_id not in CHAT_HISTORY:
-                    CHAT_HISTORY[chat_id] = []
-                CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
-                save_chat_history(CHAT_HISTORY)
-                
-                chat_info["last_activity"] = get_msk_now()
-                await asyncio.sleep(random.uniform(5.0, 10.0))
+    if chat_id not in CHAT_HISTORY:
+        CHAT_HISTORY[chat_id] = []
+    CHAT_HISTORY[chat_id].append({"role": "user", "content": user_text})
+    CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-15:]
 
-        except Exception as e:
-            print("❌ Ошибка авто-инициативы:", e)
+    try:
+        await context.bot.send_chat_action(chat_id=chat_id, action="typing")
+        await asyncio.sleep(random.uniform(3.0, 6.0))
 
-async def handle_business_connection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.business_connection:
-        print(f"\n🔗 BUSINESS CONNECTION: ID {update.business_connection.id}")
+        answer = ask_ai(FIL_GROUP_PROMPT, CHAT_HISTORY[chat_id], max_tokens=80).strip()
+        
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=answer,
+            reply_to_message_id=msg.message_id
+        )
+
+        CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
+        save_chat_history(CHAT_HISTORY)
+    except Exception as e:
+        print("❌ Ошибка в группе:", e)
 
 async def handle_ping(request):
     return web.Response(text="Bot is live!")
@@ -385,10 +270,8 @@ async def main():
     await start_web_server()
     app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
 
-    app.add_handler(TypeHandler(Update, handle_business_connection), group=-2)
     app.add_handler(TypeHandler(Update, handle_business), group=-1)
-
-    asyncio.create_task(auto_initiative_loop(app))
+    app.add_handler(MessageHandler(filters.ChatType.GROUPS & filters.TEXT & (~filters.COMMAND), handle_group_message))
 
     await app.initialize()
     await app.start()
