@@ -651,16 +651,21 @@ def get_user_display_name(user) -> str:
 # ==============================
 
 def split_into_messages(text: str) -> list:
-    clean_text = (
-        text
-        .replace("—", " ")
-        .replace("–", " ")
-        .replace("\n", " ")
-        .strip()
-    )
-
+    # Удаляем лишние тире, но СОХРАНЯЕМ переносы строк (\n)
+    clean_text = text.replace("—", " ").replace("–", " ").strip()
     if not clean_text:
         return []
+
+    # 1. Разбиваем текст по переносам строк (Enter)
+    lines = [line.strip() for line in clean_text.split("\n") if line.strip()]
+    
+    result = []
+    for line in lines:
+        # 2. Если внутри строки есть знаки препинания (. ! ?), режем доп. по ним
+        parts = [p.strip() for p in re.split(r"(?<=[.!?])\s+", line) if p.strip()]
+        result.extend(parts)
+
+    return result if result else [clean_text]
 
     # Короткий ответ лучше отправлять одним сообщением.
     if len(clean_text) <= 140:
