@@ -297,8 +297,8 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def auto_initiative_loop(app):
     await asyncio.sleep(60)
     while True:
-        # Проверяем раз в 30 минут
-        await asyncio.sleep(1800)
+        # Проверяем раз в 15 минут
+        await asyncio.sleep(900)
         try:
             now = get_msk_now()
             
@@ -307,48 +307,51 @@ async def auto_initiative_loop(app):
                 if not chat_info or not chat_info["last_activity"]:
                     continue
                 
-                # Пишем первой только если молчали больше 2 часов
+                # ЖЕСТКОЕ ПРАВИЛО: Пишем первой ТОЛЬКО если с последнего сообщения
+                # прошло от 2 до 4 часов. Если меньше 2 часов — вы активно общаетесь, бот молчит!
                 hours_passed = (now - chat_info["last_activity"]).total_seconds() / 3600.0
-                if hours_passed >= 2.0:
-                    history = CHAT_HISTORY.get(chat_id, [])
-                    
-                    hour = now.hour
-                    if 12 <= hour < 18:
-                        time_prompt = "Сейчас день. Напиши коротко, что занят кодом или делами."
-                    elif 18 <= hour < 23:
-                        time_prompt = "Сейчас вечер. Напиши коротко, что освободился или засиделся за компом."
-                    else:
-                        # Ночью и рано утром бот вообще не лезет сам
-                        continue
+                if not (2.0 <= hours_passed <= 4.0):
+                    continue
 
-                    initiative_prompt = f"""
-Ты — Филипп (парень, 22 года, программист). Напиши собеседнице первой, так как вы долго не общались.
+                history = CHAT_HISTORY.get(chat_id, [])
+                
+                hour = now.hour
+                if 12 <= hour < 18:
+                    time_prompt = "Сейчас день. Напиши коротко, что занят кодом или делами."
+                elif 18 <= hour < 23:
+                    time_prompt = "Сейчас вечер. Напиши коротко, что освободился или засиделся за компом."
+                else:
+                    # Ночью и утром бот не лезет сам
+                    continue
+
+                initiative_prompt = f"""
+Ты — Филипп (парень, 22 года, программист). Напиши собеседнице первой, так как вы пару часов не общались.
 КОНТЕКСТ: {time_prompt}
 - СТРОГО В МУЖСКОМ РОДЕ («занят», «освободился», «сидел»).
 - Без бреда, снов и фантазий. Обычное живое сообщение.
 - Без тире. Без эмодзи. 1 короткое предложение.
 """
-                    
-                    answer = ask_ai(initiative_prompt, history, max_tokens=50).strip()
-                    
-                    char_count = len(answer)
-                    typing_duration = max(3.0, min(char_count * 0.35, 8.0))
-                    b_conn_id = chat_info["business_connection_id"]
+                
+                answer = ask_ai(initiative_prompt, history, max_tokens=50).strip()
+                
+                char_count = len(answer)
+                typing_duration = max(3.0, min(char_count * 0.35, 8.0))
+                b_conn_id = chat_info["business_connection_id"]
 
-                    if b_conn_id:
-                        await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=b_conn_id)
-                        await asyncio.sleep(typing_duration)
-                        await app.bot.send_message(chat_id=chat_id, text=answer, business_connection_id=b_conn_id)
-                    else:
-                        await app.bot.send_message(chat_id=chat_id, text=answer)
+                if b_conn_id:
+                    await app.bot.send_chat_action(chat_id=chat_id, action="typing", business_connection_id=b_conn_id)
+                    await asyncio.sleep(typing_duration)
+                    await app.bot.send_message(chat_id=chat_id, text=answer, business_connection_id=b_conn_id)
+                else:
+                    await app.bot.send_message(chat_id=chat_id, text=answer)
 
-                    if chat_id not in CHAT_HISTORY:
-                        CHAT_HISTORY[chat_id] = []
-                    CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
-                    save_chat_history(CHAT_HISTORY)
-                    
-                    chat_info["last_activity"] = get_msk_now()
-                    await asyncio.sleep(random.uniform(5.0, 10.0))
+                if chat_id not in CHAT_HISTORY:
+                    CHAT_HISTORY[chat_id] = []
+                CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
+                save_chat_history(CHAT_HISTORY)
+                
+                chat_info["last_activity"] = get_msk_now()
+                await asyncio.sleep(random.uniform(5.0, 10.0))
 
         except Exception as e:
             print("❌ Ошибка авто-инициативы:", e)
@@ -379,7 +382,7 @@ async def main():
 
     await app.initialize()
     await app.start()
-    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
     
     stop_event = asyncio.Event()
     await stop_event.wait()
