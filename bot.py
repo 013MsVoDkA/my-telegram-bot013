@@ -87,7 +87,7 @@ def get_chat_lock(chat_id):
     return CHAT_LOCKS[chat_id]
 
 
-def add_history(chat_id, role, content, limit=80):
+def add_history(chat_id, role, content, limit=20):
     if chat_id not in CHAT_HISTORY:
         CHAT_HISTORY[chat_id] = []
 
@@ -541,7 +541,7 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id,
         "user",
         user_text,
-        limit=80,
+        limit=20,
     )
 
     logger.info(
@@ -593,7 +593,7 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id,
                 "assistant",
                 answer,
-                limit=80,
+                limit=20,
             )
 
             save_chat_history(CHAT_HISTORY)
@@ -684,7 +684,7 @@ async def handle_group_message(
         chat_id,
         "user",
         user_text,
-        limit=80,
+        limit=20,
     )
 
     logger.info(
@@ -745,7 +745,7 @@ async def process_group_response(
                 chat_id,
                 "assistant",
                 answer,
-                limit=80,
+                limit=20,
             )
 
             save_chat_history(CHAT_HISTORY)
