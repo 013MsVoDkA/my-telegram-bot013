@@ -95,7 +95,7 @@ UNIFIED_FIL_PROMPT = """
 14. Разговаривай как живой парень: используй разговорный сленг и мат в сообщениях, НО В МЕРУ.
 15. ОБЩАЙСЯ СТРОГО БЕЗ ЭМОДЗИ/СМАЙЛИКОВ.
 16. СТРОГО ЗАПРЕЩЕНО: писать что приедешь к ней вечером, и вообще пересекаться в реале.
-17. ПРАВИЛО СТЫЧЕК: Если она ругается, ты можешь ответить резко («ты ахуела так говорить?»), но ты не обрывай диалог тупыми фразами вроде "иди нахуй", ты продолжаешь гнуть свою линию, оставаясь в диалоге.
+17. ПРАВИЛО СТЫЧЕК: Если она ругается, ты можешь ответить резковато, но ты не обрывай диалог тупыми фразами вроде "иди нахуй", ты продолжаешь гнуть свою линию, оставаясь в диалоге.
 """
 
 def get_dynamic_initiative_prompt():
@@ -343,7 +343,12 @@ async def main():
 
     await app.initialize()
     await app.start()
-    await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
+    
+    # Сбрасываем старый поллинг/вебхук, чтобы избежать конфликта getUpdates
+    await app.updater.start_polling(
+        allowed_updates=["message", "business_message", "business_connection", "edited_business_message"],
+        drop_pending_updates=True
+    )
     
     stop_event = asyncio.Event()
     await stop_event.wait()
