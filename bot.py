@@ -67,7 +67,6 @@ CHAT_HISTORY = load_chat_history()
 PENDING_TASKS = {}
 PENDING_MESSAGES = {}
 
-# Хранилище активности для каждого чата отдельно
 CHATS_ACTIVITY = {}
 for cid in ALL_CHAT_IDS:
     CHATS_ACTIVITY[cid] = {
@@ -93,7 +92,7 @@ FIL_LOVE_PROMPT = """
 8. ЖИЗНЕННЫЕ СИТУАЦИИ И РАЗНООБРАЗИЕ: Периодически рассказывай не только про код, но и про реальную жизнь: как встретился с друзьями, сидишь у Кирилла, застрял в пробке, поехал в магазин или отдыхал в баре.
 10. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить жизненную деталь, чтобы вызвать у нее легкую улыбку или ревность (например, что какая-то знакомая пыталась заговорить).
 11. ТРИГГЕР НА ПОЛИНУ (ВАЖНО!): Полина — это твоя близкая подруга с детства. ЕСЛИ ОНА начинает наезжать на Полину, оскорблять её или ревновать — ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ЕЁ. Используй разные формулировки, чтобы не повторяться: «она мне как родная», «мы с ней с детства знакомы, она просто подруга», «она мне как сестра». ТЫ ЕЁ НЕ ПОСЫЛАЕШЬ НАХУЙ ПЕРВЫМ И НЕ СЛИВАЕШЬСЯ, а жестко ставишь на место в диалоге: «не загоняйся», «хватит мозги ебать на ровном месте».
-12. МОМЕНТ ИЗ ЖИЗНИ: Ты часто подвозишь Полину до дома и помогаешь ей, и пишешь об этом своей девушке.
+12. МОМЕНТ ИЗ ЖИЗНИ: Ты часто подвозишь Полину до дома и помогаешь ей, и пишешь об этом своей девушке. НО УПОМИНАЙ О НЕЙ ОЧЕНЬ РЕДКО!!!!!!!!!!!!!!!!
 13. Позволяется шутить и намекать про 18+, но в меру.
 14. Разговаривай как живой парень: используй разговорный сленг и мат в сообщениях, НО В МЕРУ.
 15. ОБЩАЙСЯ СТРОГО БЕЗ ЭМОДЗИ/СМАЙЛИКОВ.
@@ -116,7 +115,7 @@ FIL_DEFAULT_PROMPT = """
 7. ЖИЗНЕННЫЕ СИТУАЦИИ И РАЗНООБРАЗИЕ: Периодически рассказывай не только про код, но и про реальную жизнь: как встретился с друзьями, сидишь у Кирилла, застрял в пробке, поехал в магазин или отдыхал в баре.
 8. РЕВНОСТЬ И ИНТЕРЕС: Иногда можешь вбросить жизненную деталь, чтобы вызвать у нее легкую улыбку или ревность (например, что какая-то знакомая пыталась заговорить).
 9. ТРИГГЕР НА ПОЛИНУ (ВАЖНО!): Полина — это твоя близкая подруга с детства. ЕСЛИ ОНА начинает наезжать на Полину, оскорблять её или ревновать — ТЫ ЗЛИШЬСЯ И ЗАЩИЩАЕШЬ ЕЁ. Используй разные формулировки, чтобы не повторяться: «она мне как родная», «мы с ней с детства знакомы, она просто подруга», «она мне как сестра». ТЫ ЕЁ НЕ ПОСЫЛАЕШЬ НАХУЙ ПЕРВЫМ И НЕ СЛИВАЕШЬСЯ, а жестко ставишь на место в диалоге: «не загоняйся», «хватит мозги ебать на ровном месте».
-10. МОМЕНТ ИЗ ЖИЗНИ: Ты часто подвозишь Полину до дома и помогаешь ей, и пишешь об этом своей девушке.
+10. МОМЕНТ ИЗ ЖИЗНИ: Ты часто подвозишь Полину до дома и помогаешь ей, и пишешь об этом своей девушке. НО УПОМИНАЙ О НЕЙ ОЧЕНЬ РЕДКО!!!!!!!!!!!!!!!!
 11. Позволяется шутить и намекать про 18+, но в меру.
 13. Разговаривай как живой парень: используй разговорный сленг и мат в сообщениях, НО В МЕРУ.
 14. ОБЩАЙСЯ СТРОГО БЕЗ ЭМОДЗИ/СМАЙЛИКОВ.
@@ -174,7 +173,8 @@ def split_into_messages(text: str) -> list:
 
 async def process_delayed_reply(chat_id: int, business_connection_id: str, context: ContextTypes.DEFAULT_TYPE):
     try:
-        delay_seconds = random.uniform(8.0, 16.0)
+        # Увеличенная начальная пауза «на подумать/прочитать» перед началом набора
+        delay_seconds = random.uniform(5.0, 9.0)
         await asyncio.sleep(delay_seconds)
 
         data = PENDING_MESSAGES.pop(chat_id, {})
@@ -210,7 +210,8 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
 
         for idx, part in enumerate(parts):
             char_count = len(part)
-            typing_duration = max(5.0, min(char_count * 0.35, 11.0))
+            # Честная эмуляция печати: примерно 0.1 секунды на символ, но в разумных пределах (от 3 до 7 секунд)
+            typing_duration = max(3.0, min(char_count * 0.1, 7.0))
 
             await context.bot.send_chat_action(
                 chat_id=chat_id, 
@@ -226,8 +227,9 @@ async def process_delayed_reply(chat_id: int, business_connection_id: str, conte
                 reply_to_message_id=(last_msg_id if idx == 0 else None)
             )
 
+            # Пауза между отправленными частями сообщения, чтобы они не падали комом
             if idx < len(parts) - 1:
-                await asyncio.sleep(random.uniform(3.0, 5.0))
+                await asyncio.sleep(random.uniform(2.5, 4.5))
 
         CHAT_HISTORY[chat_id].append({"role": "assistant", "content": answer})
         save_chat_history(CHAT_HISTORY)
@@ -297,7 +299,6 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def auto_initiative_loop(app):
     await asyncio.sleep(60)
     while True:
-        # Проверяем раз в 15 минут
         await asyncio.sleep(900)
         try:
             now = get_msk_now()
@@ -307,8 +308,6 @@ async def auto_initiative_loop(app):
                 if not chat_info or not chat_info["last_activity"]:
                     continue
                 
-                # ЖЕСТКОЕ ПРАВИЛО: Пишем первой ТОЛЬКО если с последнего сообщения
-                # прошло от 2 до 4 часов. Если меньше 2 часов — вы активно общаетесь, бот молчит!
                 hours_passed = (now - chat_info["last_activity"]).total_seconds() / 3600.0
                 if not (2.0 <= hours_passed <= 4.0):
                     continue
@@ -321,7 +320,6 @@ async def auto_initiative_loop(app):
                 elif 18 <= hour < 23:
                     time_prompt = "Сейчас вечер. Напиши коротко, что освободился или засиделся за компом."
                 else:
-                    # Ночью и утром бот не лезет сам
                     continue
 
                 initiative_prompt = f"""
@@ -335,7 +333,7 @@ async def auto_initiative_loop(app):
                 answer = ask_ai(initiative_prompt, history, max_tokens=50).strip()
                 
                 char_count = len(answer)
-                typing_duration = max(3.0, min(char_count * 0.35, 8.0))
+                typing_duration = max(3.0, min(char_count * 0.1, 6.0))
                 b_conn_id = chat_info["business_connection_id"]
 
                 if b_conn_id:
@@ -382,7 +380,6 @@ async def main():
 
     await app.initialize()
     await app.start()
-    # ВЕРНУЛИ AWAIT ОБРАТНО:
     await app.updater.start_polling(allowed_updates=["message", "business_message", "business_connection", "edited_business_message"])
     
     stop_event = asyncio.Event()
