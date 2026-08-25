@@ -727,7 +727,7 @@ async def main():
     application.add_handler(TypeHandler(Update, handle_business), group=-1)
     application.add_handler(
         MessageHandler(
-            filters.CHAT & (~filters.COMMAND),
+         filters.ChatType.GROUPS & (~filters.COMMAND),
             handle_group_message,
         )
     )
