@@ -270,15 +270,15 @@ async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 1
         "Content-Type": "application/json",
     }
 
-   payload = {
-    "model": "anthropic/claude-3.5-sonnet", # Замените на "anthropic/claude-3-5-sonnet" или "anthropic/claude-3.5-sonnet:beta"
-    "messages": [
-        {"role": "system", "content": system_prompt},
-        *messages_history,
-    ],
-    "temperature": 0.8,
-    "max_tokens": max_tokens,
-}
+    payload = {
+        "model": "anthropic/claude-3.5-sonnet",
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            *messages_history,
+        ],
+        "temperature": 0.8,
+        "max_tokens": max_tokens,
+    }
 
     async with httpx.AsyncClient(timeout=35.0) as client:
         response = await client.post(
@@ -304,7 +304,6 @@ async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 1
     answer = answer.replace("—", ", ").replace("–", "-")
 
     return answer.strip()
-
 
 # ==============================
 # 🎙️ GROQ WHISPER
