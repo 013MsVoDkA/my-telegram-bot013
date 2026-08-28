@@ -271,18 +271,13 @@ async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 1
         "Content-Type": "application/json",
     }
 
-    # 👇 ВОТ ЭТОТ БЛОК НАДО ОБНОВИТЬ:
-
-   payload = {
-      
-        "model": "anthropic/claude-3.5-sonnet", 
+    payload = {
+        "model": "anthropic/claude-3.5-sonnet",
         "messages": [
             {"role": "system", "content": system_prompt},
             *messages_history,
         ],
-        "temperature": 0.9,       # Для Claude или Hermes отлично подходит 0.85 - 0.95
-        "presence_penalty": 0.3,
-        "frequency_penalty": 0.2,
+        "temperature": 0.8,
         "max_tokens": max_tokens,
     }
 
@@ -292,7 +287,9 @@ async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 1
             json=payload,
             headers=headers,
         )
-
+        response.raise_for_status()
+        data = response.json()
+        return data["choices"][0]["message"]["content"]
     if response.status_code != 200:
         raise RuntimeError(f"Ошибка OpenRouter {response.status_code}: {response.text}")
 
