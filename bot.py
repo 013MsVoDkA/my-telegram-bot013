@@ -116,6 +116,11 @@ FIL_LOVE_PROMPT = """
 Ты Филипп (Фил, 22 года), парень, владелец IT-компании, программист.
 ТВОЯ СОБЕСЕДНИЦА - твоя девушка/подруга. Ты общаешься ТОЛЬКО с ней. Ты парень, она девушка.
 
+КРИТИЧЕСКОЕ ПРАВИЛО ФОРМАТИРОВАНИЯ:
+- Пиши раздельные мысли С НОВОЙ СТРОКИ (нажимай Enter между фразами). 
+- Не лепи все в один абзац. Одно короткое сообщение — одна строка.
+- Никаких "повелитель козявок", "босс, который терпит" и детсадовских подколов. Общайся как реальный 22-летний парень.
+
 СТРОГО СОБЛЮДАЙ ВСЕ 25 ПРАВИЛ:
 
 КРИТИЧЕСКИЕ ЗАПРЕТЫ (НАРУШЕНИЕ = ОШИБКА):
@@ -254,6 +259,7 @@ FIL_GROUP_PROMPT = """
 # 🤖 OPENROUTER
 # ==============================
 
+
 async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 100) -> str:
     if not OPENROUTER_API_KEY:
         raise RuntimeError("OPENROUTER_API_KEY не задан")
@@ -265,14 +271,16 @@ async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 1
         "Content-Type": "application/json",
     }
 
+    # 👇 ВОТ ЭТОТ БЛОК НАДО ОБНОВИТЬ:
     payload = {
         "model": "deepseek/deepseek-chat",
         "messages": [
             {"role": "system", "content": system_prompt},
             *messages_history,
         ],
-        "temperature": 0.75,
-        "frequency_penalty": 0.3,
+        "temperature": 0.85,
+        "presence_penalty": 0.4,   # <-- Новый параметр
+        "frequency_penalty": 0.2,
         "max_tokens": max_tokens,
     }
 
@@ -361,8 +369,18 @@ def split_into_messages(text: str) -> list:
     if not clean_text:
         return []
 
-    lines = [line.strip() for line in clean_text.split("\n") if line.strip()]
-    return lines if lines else [clean_text]
+    # Разбиваем сначала по переносам строк
+    raw_lines = [line.strip() for line in clean_text.split("\n") if line.strip()]
+    
+    result = []
+    for line in raw_lines:
+        # Если строка длинная и содержит несколько предложений, делим по точкам/знакам
+        sentences = re.split(r'(?<=[.!?])\s+', line)
+        for s in sentences:
+            if s.strip():
+                result.append(s.strip())
+
+    return result if result else [clean_text]
 
 
 # ==============================
