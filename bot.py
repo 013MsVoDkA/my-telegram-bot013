@@ -272,14 +272,16 @@ async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 1
     }
 
     # 👇 ВОТ ЭТОТ БЛОК НАДО ОБНОВИТЬ:
-    payload = {
-        "model": "deepseek/deepseek-chat",
+
+   payload = {
+      
+        "model": "anthropic/claude-3.5-sonnet", 
         "messages": [
             {"role": "system", "content": system_prompt},
             *messages_history,
         ],
-        "temperature": 0.85,
-        "presence_penalty": 0.4,   # <-- Новый параметр
+        "temperature": 0.9,       # Для Claude или Hermes отлично подходит 0.85 - 0.95
+        "presence_penalty": 0.3,
         "frequency_penalty": 0.2,
         "max_tokens": max_tokens,
     }
