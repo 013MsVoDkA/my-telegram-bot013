@@ -256,9 +256,8 @@ FIL_GROUP_PROMPT = """
 
 
 # ==============================
-# 🤖 OPENROUTER
+# 🤖 OPENROUTER (ИСПРАВЛЕНО!)
 # ==============================
-
 
 async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 100) -> str:
     if not OPENROUTER_API_KEY:
@@ -287,13 +286,10 @@ async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 1
             json=payload,
             headers=headers,
         )
-        response.raise_for_status()
-        data = response.json()
-        return data["choices"][0]["message"]["content"]
-    if response.status_code != 200:
-        raise RuntimeError(f"Ошибка OpenRouter {response.status_code}: {response.text}")
+        if response.status_code != 200:
+            raise RuntimeError(f"Ошибка OpenRouter {response.status_code}: {response.text}")
 
-    data = response.json()
+        data = response.json()
 
     try:
         answer = data["choices"][0]["message"]["content"]
@@ -368,12 +364,10 @@ def split_into_messages(text: str) -> list:
     if not clean_text:
         return []
 
-    # Разбиваем сначала по переносам строк
     raw_lines = [line.strip() for line in clean_text.split("\n") if line.strip()]
     
     result = []
     for line in raw_lines:
-        # Если строка длинная и содержит несколько предложений, делим по точкам/знакам
         sentences = re.split(r'(?<=[.!?])\s+', line)
         for s in sentences:
             if s.strip():
@@ -436,7 +430,7 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def process_business_response(update, context, chat_id, connection_id, message_id):
     try:
-        initial_delay = random.uniform(6.0, 14.0)
+        initial_delay = random.uniform(4.0, 8.0)
         await asyncio.sleep(initial_delay)
 
         async with get_chat_lock(chat_id):
@@ -458,10 +452,8 @@ async def process_business_response(update, context, chat_id, connection_id, mes
 - Когда говоришь о текущей собеседнице, обращайся к ней на "ты".
 - НЕ называй её по имени в третьем лице без необходимости.
 - НЕ говори о ней как о посторонней девушке.
-- НЕ используй конструкции вроде "{interlocutor_name} скинула", "{interlocutor_name} сказала", "{interlocutor_name} спрашивала".
-- Вместо этого используй "ты скинула", "ты сказала", "ты спрашивала".
-- Если тебе нужно упомянуть другую девушку из их компании (Ангелину, Владу, Соню или Лилю), используй её имя, чтобы не путать людей.
-- Не смешивай информацию из переписок Ангелины, Влады, Сони и Лили.
+- НЕ используй конструкции вроде "{interlocutor_name} скинула", "{interlocutor_name} сказала".
+- Вместо этого используй "ты скинула", "ты сказала".
 """
 
             time_context_prompt = (
@@ -478,21 +470,21 @@ async def process_business_response(update, context, chat_id, connection_id, mes
 
             parts = split_into_messages(answer)
 
-            for index, part in enumerate(parts):
+            for part in parts:
                 await context.bot.send_chat_action(
                     chat_id=chat_id,
                     action="typing",
                     business_connection_id=connection_id,
                 )
 
-                typing_delay = max(2.0, min(len(part) * 0.08, 5.0))
+                typing_delay = max(1.5, min(len(part) * 0.07, 4.0))
                 await asyncio.sleep(typing_delay)
 
+                # Убрали reply_to_message_id для чистой отправки
                 await context.bot.send_message(
                     chat_id=chat_id,
                     text=part,
                     business_connection_id=connection_id,
-                    reply_to_message_id=message_id if index == 0 else None,
                 )
 
             add_history(chat_id, "assistant", answer, limit=20)
@@ -581,19 +573,18 @@ async def process_group_response(update, context, chat_id, message_id):
 
             parts = split_into_messages(answer)
 
-            for index, part in enumerate(parts):
+            for part in parts:
                 await context.bot.send_chat_action(
                     chat_id=chat_id,
                     action="typing",
                 )
 
-                typing_delay = max(2.0, min(len(part) * 0.08, 5.0))
+                typing_delay = max(1.5, min(len(part) * 0.07, 4.0))
                 await asyncio.sleep(typing_delay)
 
                 await context.bot.send_message(
                     chat_id=chat_id,
                     text=part,
-                    reply_to_message_id=message_id if index == 0 else None,
                 )
 
             add_history(chat_id, "assistant", answer, limit=20)
