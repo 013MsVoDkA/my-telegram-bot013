@@ -256,7 +256,7 @@ FIL_GROUP_PROMPT = """
 
 
 # ==============================
-# 🤖 OPENROUTER (ИСПРАВЛЕНО!)
+# 🤖 OPENROUTER
 # ==============================
 
 async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 100) -> str:
@@ -271,7 +271,7 @@ async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 1
     }
 
     payload = {
-        "model": "anthropic/claude-3.5-sonnet",
+        "model": "openai/gpt-4o-mini",
         "messages": [
             {"role": "system", "content": system_prompt},
             *messages_history,
@@ -479,7 +479,6 @@ async def process_business_response(update, context, chat_id, connection_id, mes
                 typing_delay = max(1.5, min(len(part) * 0.07, 4.0))
                 await asyncio.sleep(typing_delay)
 
-                # Убрали reply_to_message_id для чистой отправки
                 await context.bot.send_message(
                     chat_id=chat_id,
                     text=part,
