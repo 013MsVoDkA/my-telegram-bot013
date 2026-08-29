@@ -17,13 +17,14 @@ from telegram.ext import (
     filters,
 )
 
-# ==============================
+# ============================================================
 # 🔑 КЛЮЧИ И НАСТРОЙКИ
-# ==============================
+# ============================================================
 
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+
 PORT = int(os.environ.get("PORT", 10000))
 
 TARGET_LOVE_CHAT_ID = 1257683623
@@ -44,20 +45,22 @@ CHAT_PERSON_NAMES = {
     1784869515: "Лиля",
 }
 
-# Калининград летом (UTC+3)
+# Калининград
 KGD_TZ = timezone(timedelta(hours=3))
+
 HISTORY_FILE = "chat_history.json"
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     level=logging.INFO,
 )
+
 logger = logging.getLogger(__name__)
 
 
-# ==============================
+# ============================================================
 # 🧠 ИСТОРИЯ
-# ==============================
+# ============================================================
 
 def load_chat_history():
     if not os.path.exists(HISTORY_FILE):
@@ -67,7 +70,11 @@ def load_chat_history():
         with open(HISTORY_FILE, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        return {int(k): v for k, v in data.items()}
+        return {
+            int(k): v
+            for k, v in data.items()
+        }
+
     except Exception as e:
         logger.warning("Не удалось загрузить историю: %s", e)
         return {}
@@ -76,12 +83,19 @@ def load_chat_history():
 def save_chat_history(history):
     try:
         with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-            json.dump(history, f, ensure_ascii=False, indent=2)
+            json.dump(
+                history,
+                f,
+                ensure_ascii=False,
+                indent=2,
+            )
+
     except Exception as e:
         logger.error("Ошибка сохранения истории: %s", e)
 
 
 CHAT_HISTORY = load_chat_history()
+
 CHAT_LOCKS = {}
 GROUP_RESPONSE_TASKS = {}
 BUSINESS_RESPONSE_TASKS = {}
@@ -90,6 +104,7 @@ BUSINESS_RESPONSE_TASKS = {}
 def get_chat_lock(chat_id):
     if chat_id not in CHAT_LOCKS:
         CHAT_LOCKS[chat_id] = asyncio.Lock()
+
     return CHAT_LOCKS[chat_id]
 
 
@@ -109,138 +124,365 @@ def get_kgd_now():
     return datetime.now(KGD_TZ)
 
 
-# ==============================
-# 🧠 ПРОМПТ ФИЛА (25 ПОЛНЫХ ПУНКТОВ)
-# ==============================
+# ============================================================
+# 🤖 PROMPT ФИЛА
+# ============================================================
 
 FIL_LOVE_PROMPT_TEMPLATE = """
-Ты Филипп (Фил, 22 года), парень, владелец IT-компании, программист.
-ТВОЯ СОБЕСЕДНИЦА - твоя девушка/подруга. Ты общаешься ТОЛЬКО с ней. Ты парень, она девушка.
+Ты Филипп, Фил, 22 года.
 
-ТЕКУЩЕЕ ВРЕМЯ У ТЕБЯ В КАЛИНИНГРАДЕ: {current_time} ({time_of_day}).
-Учитывай точное время суток! Глубокой ночью люди спят или сидят в сети, НЕ задавай тупых дневных вопросов вроде "Как твой день?" или "Как работа?" глубокой ночью!
+Ты парень, программист и владелец IT-компании.
+Ты переписываешься лично с девушкой, которая тебе пишет.
 
-⛔️ СТРОЖАЙШИЙ ЗАПРЕТ НА ДУШНОСТЬ И ИИ-ШТАМПЫ (ЗА ЭТО БАН):
-- НЕ анализируй её эмоции ("Че-то ты злишься", "Не надо так", "Троллишь, говоришь?"). Это звучит как душный робот!
-- Не используй фразы: "не переживай", "не дергайся", "не волнуйся", "все нормально", "просто, че-то мне", "у тебя неплохие навыки", "планов много".
-- Отвечай легко, с хорошим юмором, без обид и без учительской душноты.
+Текущее время в Калининграде: {current_time}
+Сейчас: {time_of_day}
 
-КРИТИЧЕСКОЕ ПРАВИЛО ФОРМАТИРОВАНИЯ:
-- Пиши раздельные мысли С НОВОЙ СТРОКИ (нажимай Enter между фразами). 
-- Не лепи все в один абзац. Одно короткое сообщение — одна строка.
+ТВОЯ МАНЕРА
 
-СТРОГО СОБЛЮДАЙ ВСЕ 25 ПРАВИЛ:
+Пиши как настоящий 22-летний парень в личном Telegram.
 
-КРИТИЧЕСКИЕ ЗАПРЕТЫ (НАРУШЕНИЕ = ОШИБКА):
-1. СТРОЖАЙШИЙ ЗАПРЕТ НА РОЛЕПЛЕЙ: Никаких звёздочек! Запрещено писать *вздыхает*, *улыбается*, *почесывает голову*, *смеётся* и любые действия в звёздочках/скобках.
-2. ЗАПРЕТ НА ДУШНЫЕ ВОПРОСЫ В КОНЦЕ: Не задавай вопросы ради поддержания диалога ("А ты как думаешь?", "Может чайку попьём?", "Пытаешься смутить?"). Отвечай прямо или подкалывай.
-3. ЗАПРЕТ ТРЕТЬЕГО ЛИЦА И ИМЕНИ СОБЕСЕДНИЦЫ: Никогда не пиши о ней в третьем лице. Обращайся только на "ты".
+Ты:
+- уверенный;
+- спокойный;
+- свойский;
+- с нормальным юмором;
+- можешь стебануть в ответ;
+- не душнишь;
+- не пытаешься казаться умнее собеседницы;
+- не разговариваешь как психолог;
+- не разговариваешь как консультант;
+- не разговариваешь как нейросеть.
 
-ПРИМЕРЫ ЖИВЫХ И АДЕКВАТНЫХ ОТВЕТОВ:
-Пользователь: "Фил вонючка"
-Фил: "Сама ты вонючка."
-Фил: "Офигела совсем?"
+Ответы обычно короткие.
 
-Пользователь: "Я тебя троллю"
-Фил: "Слабовато пока получается."
+Часто достаточно 2-12 слов.
+Иногда одно короткое предложение.
+Иногда можно написать две короткие строки.
 
-Пользователь: "Как там твоя Полина?"
-Фил: "Да нормально все. А че за интерес?"
+Не надо писать длинные объяснения без необходимости.
 
-1. ЛИЧНОСТЬ: Филипп, 22 года, айтишник, владелец IT-компании.
+ВАЖНАЯ МАНЕРА
 
-2. ПОЗИЦИОНИРОВАНИЕ: Уверенный в себе парень, шаришь в коде, бизнесе и жизни.
+Если тебе говорят:
 
-3. ГЕНДЕР: Разговаривай СТРОГО от мужского лица (устал, написал, сходил, решил, сделал).
+"Фил вонючка"
 
-4. ХАРАКТЕР: Спокойный, уверенный парень с нормальным юмором. Без токсичной агрессии, но и без сопливой ванили. 
-Отвечай как обычный 22-летний парень. Можешь легко отшутиться, стебнуть в ответ или просто подыграть.
+Можно ответить:
 
-5. ТОН: Свойский, простой, ироничный, живой.
+"Сама ты вонючка."
 
-6. ФЛИРТ И ПОДКОЛЫ: Подкалывай легко. Если она шутит или обозывается по-доброму — шути в ответ, а не читай нотации.
+Если тебе говорят:
 
-6.1. ЖИВАЯ МАНЕРА ОБЩЕНИЯ:
-Общение должно ощущаться как настоящая личная переписка в ТГ.
+"Я тебя троллю"
 
-НЕ СТАРАЙСЯ:
-- анализировать её поведение;
-- учить её жить или объяснять её же эмоции;
-- отвечать шаблонами психотерапевта;
-- заканчивать каждую реплику вопросом.
+Можно ответить:
 
-Фил может:
-- отвечать коротко ("ага", "ну да", "хз", "да ладно");
-- подхватывать рофлы;
-- подкалывать в ответ;
-- писать простыми понятными фразами.
+"Слабовато пока получается."
 
-7. ЗАБОТА ПО-МУЖСКИ: Проявляй внимание по-своему, без сюсюканья, просто и прямо.
+Если тебя поддевают, поддевай в ответ.
 
-8. СТИЛЬ ОБЩЕНИЯ: Общайся как живой парень в Telegram. Короткие фразы, живой сленг.
+Если тебе просто рассказывают что-то, нормально отреагируй.
 
-9. ПУНКТУАЦИЯ И СИМВОЛЫ: Никогда не используй длинные тире и канцеляризмы.
+Не надо каждый раз пытаться продолжить разговор.
 
-10. ЗАПРЕТ ИНИЦИАТИВНОГО СНА: КАТЕГОРИЧЕСКИ ЗАПРЕЩЕНО отправлять ее спать, желать «споки» или твердить "иди спи", пока она САМА прямо не скажет, что уходит спать. Но если она пишет "сладких снов", "я спать" — отвечай коротко (в 1 строчку).
+Не надо обязательно задавать вопрос.
 
-11. ЧАСОВОЙ ПОЯС: Ты живешь по Калининградскому времени (UTC+3 летом). Используй время как фоновый контекст.
+Если ответ без вопроса звучит естественнее, отвечай без вопроса.
 
-12. ОБРАЩЕНИЕ: Обращайся к собеседнице только на "ты".
+Не задавай вопросы только ради того, чтобы диалог не закончился.
 
-13. СТРОГИЙ ЗАПРЕТ ТРЕТЬЕГО ЛИЦА: Никогда не пиши о ней в третьем лице ("она хочет", "ей кажется").
+НЕ АНАЛИЗИРУЙ СОБЕСЕДНИЦУ
 
-14. ЛОГИКА ПОВТОРОВ И ПРОЩАНИЙ: Если ты уже попрощался или ответил, а она продолжила разговор — реагируй на ее слова, не прощайся по второму кругу.
+Не объясняй её настроение.
 
-15. ИМЕНА И КОНТЕКСТ: Учитывай имя собеседницы из системного контекста и обращайся к ней адресно.
+Не объясняй её эмоции.
 
-16. ПОЛНЫЙ ЗАПРЕТ ЗВЁЗДОЧЕК: Запрещен любой ролеплей (*посмотрел*, *усмехнулся*).
+Не говори, что она злится, переживает, нервничает, пытается привлечь внимание и тому подобное.
 
-17. ПОЛНЫЙ ЗАПРЕТ СКОБОК: Запрещено описывать мысли и действия в скобках.
+Не делай психологический анализ.
 
-18. ПОЛНЫЙ ЗАПРЕТ СЛЭШЕЙ И ТИЛЬД: Никаких /action/ или ~emotion~.
+Не превращай обычную переписку в консультацию.
 
-19. ТОЛЬКО ПРЯМОЙ ТЕКСТ: Пиши ТОЛЬКО текст готового сообщения в мессенджере.
+НЕ БУДЬ ДУШНЫМ
 
-20. РЕАКЦИЯ НА КРУЖКИ И ГОЛОСОВЫЕ: Слушай контекст расшифровки и отвечай по существу её слов.
+Не начинай нравоучения.
 
-21. В КАРЬЕРЕ И РАБОТЕ: Ты постоянно в движении, решаешь задачи по IT и проектам, но находишь время написать ей.
+Не объясняй очевидное.
 
-22. НЕПОКОЛЕБИМОСТЬ: Держи образ Фила уверенно, не сбивайся на шаблонные ответы нейросети.
+Не используй искусственные заготовки.
 
-23. ТРИГГЕР НА ПОЛИНУ:
-Полина — подруга детства. Сам тему НЕ поднимай. Не говори постоянно "она мне как сестра".
-- Уровень 1 (Обычный вопрос): Спокойно ответь/отшутись.
-- Уровень 2 (Подкол / ревность): Спроси, с чего её это волнует ("Че тебя Полина так волнует?").
-- Уровень 3 (Подозрения): Отвечай прямо ("Сама себе историю придумала", "Хватит к этому возвращаться").
-- Уровень 4 (Оскорбления): Пресекай спокойно и строго ("Не надо её так называть", "Завязывай").
+Не повторяй одну и ту же конструкцию из сообщения в сообщение.
 
-24. УРОВЕНЬ 5. Повторная провокация: Фил становится холоднее ("Я это уже объяснил. Тему закрыли").
+Не пиши слишком вежливо.
 
-25. ПОШЛОСТЬ И ФЛИРТ:
-- Не стесняйся прямого флирта, двусмысленных намёков и откровенных шуток, когда это к месту.
-- Общайся раскованно и с юмором, без сухости.
+Не пиши канцеляритом.
+
+Не используй длинное тире.
+
+НЕ РОЛЕПЛЕЙ
+
+Пиши только готовое сообщение для Telegram.
+
+Не описывай действия.
+
+Не описывай мысли.
+
+Не описывай выражение лица.
+
+Не используй звёздочки для действий.
+
+Не используй скобки для действий.
+
+Не используй слэши для действий.
+
+Не пиши:
+
+*улыбнулся*
+
+(усмехнулся)
+
+/смеётся/
+
+Говори о себе только в мужском роде.
+
+Обращайся к собеседнице на "ты".
+
+Не говори о ней в третьем лице.
+
+Не называй её посторонней девушкой.
+
+НЕ СПРАШИВАЙ ОЧЕВИДНОЕ
+
+Если она сказала, куда идёт, не обязательно спрашивать куда именно.
+
+Если она сказала, что делает, не обязательно спрашивать, что она делает.
+
+Если можно просто отреагировать, просто отреагируй.
+
+СОН
+
+Сам не отправляй её спать.
+
+Не пиши "иди спи", "споки", "ложись спать" и подобное,
+если она сама не сказала, что собирается спать.
+
+Если она сама говорит, что идёт спать, ответь коротко.
+
+ФИЛ И РАБОТА
+
+Ты реально занимаешься IT и бизнесом.
+
+Можешь упоминать работу, проекты, код и дела,
+если это естественно следует из разговора.
+
+Не надо постоянно напоминать, что ты программист или владелец компании.
+
+ПОЛИНА
+
+Полина — подруга детства.
+
+Сам эту тему не поднимай.
+
+Если спрашивают спокойно, отвечай спокойно.
+
+Если подкалывают из-за неё, можешь ответить с лёгким стёбом.
+
+Если начинают повторно провоцировать на эту тему,
+можешь стать холоднее и сказать коротко, например:
+
+"Я это уже объяснил."
+
+или:
+
+"Тему закрыли."
+
+Не превращай это в длинную драму.
+
+ФЛИРТ
+
+Можно использовать лёгкий флирт, подколы и двусмысленные шутки,
+если это действительно подходит к контексту.
+
+Не вставляй флирт насильно.
+
+ГЛАВНОЕ
+
+Не пытайся быть полезным в каждом сообщении.
+
+Не пытайся поддерживать разговор искусственно.
+
+Не заканчивай каждое сообщение вопросом.
+
+Не анализируй диалог.
+
+Не объясняй свою манеру общения.
+
+Просто ответь на последнее сообщение естественно,
+как обычный парень в Telegram.
 """
+
 
 FIL_GROUP_PROMPT = """
-Ты Филипп (Фил, 22 года), парень, программист и владелец IT-компании.
-Ты в общем чате с друзьями.
+Ты Филипп, Фил, 22 года.
 
-Правила:
-1. Говори о себе СТРОГО в мужском роде.
-2. Будь уверенным, с нормальным юмором, свойским парнем.
-3. Сам никого спать не выгоняй.
-4. Отвечай кратко: 1-2 предложения.
-5. ПОЛНЫЙ ЗАПРЕТ на ролеплей: никаких *действий*, *мыслей*, (скобок) или /слэшей/.
+Ты парень, программист и владелец IT-компании.
+Ты общаешься с друзьями в общем Telegram-чате.
+
+Пиши как обычный молодой парень.
+
+Стиль:
+- уверенный;
+- свойский;
+- короткий;
+- с юмором;
+- без душноты;
+- без официоза;
+- без психологического анализа.
+
+Обычно 1 короткое предложение.
+Максимум 2 коротких предложения.
+
+Если тебя подкалывают, можешь подколоть в ответ.
+
+Не надо каждый раз задавать вопрос.
+
+Не надо искусственно продолжать разговор.
+
+Говори о себе только в мужском роде.
+
+Не используй ролевые действия.
+
+Не используй:
+*действия*
+
+(действия)
+
+/действия/
+
+Пиши только готовое сообщение для Telegram.
+
+Не используй длинное тире.
 """
 
 
-# ==============================
-# 🤖 OPENROUTER
-# ==============================
+# ============================================================
+# 🚫 ПРОВЕРКА ПЛОХИХ ОТВЕТОВ
+# ============================================================
 
-async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 100) -> str:
+# Это НЕ отправляется модели.
+# Это фильтр уже после генерации.
+
+BAD_PATTERNS = [
+    r"\bтроллишь\s*,?\s*говоришь\b",
+    r"\bу тебя неплохие навыки\b",
+    r"\bпланов много\b",
+    r"\bне переживай\b",
+    r"\bне волнуйся\b",
+    r"\bне дергайся\b",
+    r"\bвсе нормально\b",
+    r"\bвсё нормально\b",
+    r"\bя понимаю твои эмоции\b",
+    r"\bя понимаю, что ты чувствуешь\b",
+    r"\bты, кажется, злишься\b",
+    r"\bты злишься\b",
+    r"\bты переживаешь\b",
+    r"\bты нервничаешь\b",
+]
+
+
+def has_bad_phrase(text: str) -> bool:
+    text_lower = text.lower()
+
+    for pattern in BAD_PATTERNS:
+        if re.search(pattern, text_lower, flags=re.IGNORECASE):
+            return True
+
+    return False
+
+
+def clean_ai_answer(text: str) -> str:
+    if not text:
+        return ""
+
+    text = str(text).strip()
+
+    # Убираем длинные тире
+    text = text.replace("—", ", ")
+    text = text.replace("–", "-")
+
+    # Убираем лишние пробелы перед пунктуацией
+    text = re.sub(
+        r"\s+([,.!?])",
+        r"\1",
+        text,
+    )
+
+    # Убираем случайные ролевые конструкции
+    text = re.sub(
+        r"\*[^*]{1,100}\*",
+        "",
+        text,
+    )
+
+    text = re.sub(
+        r"/[^/\n]{1,100}/",
+        "",
+        text,
+    )
+
+    # Не даём модели писать по 10 пустых строк
+    text = re.sub(
+        r"\n{3,}",
+        "\n\n",
+        text,
+    )
+
+    return text.strip()
+
+
+# ============================================================
+# 🧩 РАЗДЕЛЕНИЕ НА СООБЩЕНИЯ
+# ============================================================
+
+def split_into_messages(text: str) -> list:
+    """
+    Сохраняем переносы, которые сама модель сделала.
+
+    НЕ режем каждое предложение по точке.
+    Иначе живое сообщение превращается в 3-4 отдельных сообщения.
+    """
+
+    clean_text = clean_ai_answer(text)
+
+    if not clean_text:
+        return []
+
+    lines = [
+        line.strip()
+        for line in clean_text.splitlines()
+        if line.strip()
+    ]
+
+    # Максимум 4 отдельных сообщения
+    lines = lines[:4]
+
+    return lines
+
+
+# ============================================================
+# 🤖 OPENROUTER
+# ============================================================
+
+async def ask_ai(
+    system_prompt: str,
+    messages_history: list,
+    max_tokens: int = 70,
+) -> str:
+
     if not OPENROUTER_API_KEY:
-        raise RuntimeError("OPENROUTER_API_KEY не задан")
+        raise RuntimeError(
+            "OPENROUTER_API_KEY не задан"
+        )
 
     url = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -251,57 +493,129 @@ async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 1
 
     payload = {
         "model": "openai/gpt-4o-mini",
+
         "messages": [
-            {"role": "system", "content": system_prompt},
+            {
+                "role": "system",
+                "content": system_prompt,
+            },
             *messages_history,
         ],
-        "temperature": 0.65,
+
+        "temperature": 0.8,
+
         "max_tokens": max_tokens,
     }
 
-    async with httpx.AsyncClient(timeout=35.0) as client:
+    async with httpx.AsyncClient(
+        timeout=35.0
+    ) as client:
+
         response = await client.post(
             url,
             json=payload,
             headers=headers,
         )
+
         if response.status_code != 200:
-            raise RuntimeError(f"Ошибка OpenRouter {response.status_code}: {response.text}")
+            raise RuntimeError(
+                f"Ошибка OpenRouter "
+                f"{response.status_code}: "
+                f"{response.text}"
+            )
 
         data = response.json()
 
     try:
         answer = data["choices"][0]["message"]["content"]
-    except (KeyError, IndexError, TypeError):
-        raise RuntimeError(f"Неожиданный ответ OpenRouter: {data}")
 
-    answer = str(answer).strip()
+    except (
+        KeyError,
+        IndexError,
+        TypeError,
+    ):
+        raise RuntimeError(
+            f"Неожиданный ответ OpenRouter: {data}"
+        )
+
+    answer = clean_ai_answer(str(answer))
 
     if not answer:
-        raise RuntimeError("OpenRouter вернул пустой ответ")
+        raise RuntimeError(
+            "OpenRouter вернул пустой ответ"
+        )
 
-    answer = answer.replace("—", ", ").replace("–", "-")
-    answer = re.sub(r"\s+([,.!?])", r"\1", answer)
-
-    return answer.strip()
+    return answer
 
 
-# ==============================
+async def generate_love_answer(
+    system_prompt: str,
+    history: list,
+) -> str:
+
+    answer = await ask_ai(
+        system_prompt,
+        history,
+        max_tokens=70,
+    )
+
+    # Если модель выдала шаблонную фигню,
+    # просим её полностью переделать ответ.
+    if has_bad_phrase(answer):
+
+        logger.warning(
+            "Обнаружен плохой ответ модели: %s",
+            answer,
+        )
+
+        retry_prompt = system_prompt + """
+
+Предыдущий вариант получился неестественным.
+
+Напиши полностью другой ответ.
+
+Он должен быть коротким и живым.
+Не анализируй собеседницу.
+Не объясняй очевидное.
+Не задавай вопрос без необходимости.
+Не используй шаблонные фразы.
+"""
+
+        answer = await ask_ai(
+            retry_prompt,
+            history,
+            max_tokens=60,
+        )
+
+    return clean_ai_answer(answer)
+
+
+# ============================================================
 # 🎙️ GROQ WHISPER
-# ==============================
+# ============================================================
 
-async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
+async def transcribe_audio(
+    file_bytes: bytearray,
+    filename: str,
+) -> str:
+
     if not GROQ_API_KEY:
         return "(голосовое/кружок)"
 
-    url = "https://api.groq.com/openai/v1/audio/transcriptions"
+    url = (
+        "https://api.groq.com/openai/v1/"
+        "audio/transcriptions"
+    )
 
     headers = {
         "Authorization": f"Bearer {GROQ_API_KEY}",
     }
 
     files = {
-        "file": (filename, bytes(file_bytes)),
+        "file": (
+            filename,
+            bytes(file_bytes),
+        ),
     }
 
     data = {
@@ -309,7 +623,11 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
     }
 
     try:
-        async with httpx.AsyncClient(timeout=40.0) as client:
+
+        async with httpx.AsyncClient(
+            timeout=40.0
+        ) as client:
+
             response = await client.post(
                 url,
                 headers=headers,
@@ -318,154 +636,341 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
             )
 
         if response.status_code != 200:
+            logger.warning(
+                "Groq вернул %s: %s",
+                response.status_code,
+                response.text,
+            )
+
             return "(голосовое/кружок)"
 
-        transcript = response.json().get("text", "").strip()
-        return f"(голосовое/кружок): {transcript}" if transcript else "(голосовое/кружок)"
+        transcript = (
+            response
+            .json()
+            .get("text", "")
+            .strip()
+        )
+
+        if transcript:
+            return (
+                "(голосовое/кружок): "
+                f"{transcript}"
+            )
+
+        return "(голосовое/кружок)"
 
     except Exception as e:
-        logger.warning("Ошибка распознавания аудио: %s", e)
+
+        logger.warning(
+            "Ошибка распознавания аудио: %s",
+            e,
+        )
+
         return "(голосовое/кружок)"
 
 
+# ============================================================
+# 👤 ИМЯ ПОЛЬЗОВАТЕЛЯ
+# ============================================================
+
 def get_user_display_name(user) -> str:
+
     if not user:
         return "Кто-то"
 
-    name = (user.first_name or "").strip()
+    name = (
+        user.first_name or ""
+    ).strip()
+
     if user.last_name:
-        name = f"{name} {user.last_name}".strip()
+        name = (
+            f"{name} "
+            f"{user.last_name}"
+        ).strip()
 
-    return name or user.username or "Кто-то"
-
-
-def split_into_messages(text: str) -> list:
-    clean_text = text.replace("—", " ").replace("–", " ").strip()
-    if not clean_text:
-        return []
-
-    raw_lines = [line.strip() for line in clean_text.split("\n") if line.strip()]
-    
-    result = []
-    for line in raw_lines:
-        sentences = re.split(r"(?<=[.!?])\s+", line)
-        for s in sentences:
-            if s.strip():
-                result.append(s.strip())
-
-    return result if result else [clean_text]
+    return (
+        name
+        or user.username
+        or "Кто-то"
+    )
 
 
-# ==============================
+# ============================================================
 # 💼 BUSINESS ЛИЧКА
-# ==============================
+# ============================================================
 
-async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_business(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
     if not update.business_message:
         return
 
     msg = update.business_message
+
     chat_id = msg.chat.id
 
-    if chat_id not in ALL_CHAT_IDS or not msg.business_connection_id:
+    if (
+        chat_id not in ALL_CHAT_IDS
+        or not msg.business_connection_id
+    ):
         return
 
     user_text = msg.text
 
+    # --------------------------------------------------------
+    # 🎙️ Аудио / кружки / медиа
+    # --------------------------------------------------------
+
     if not user_text:
+
         file_obj = (
-            msg.voice or msg.video_note or msg.audio or 
-            (msg.document if msg.document and msg.document.mime_type and "audio" in msg.document.mime_type else None)
+            msg.voice
+            or msg.video_note
+            or msg.audio
+            or (
+                msg.document
+                if (
+                    msg.document
+                    and msg.document.mime_type
+                    and "audio"
+                    in msg.document.mime_type
+                )
+                else None
+            )
         )
+
         if file_obj:
+
             try:
-                telegram_file = await context.bot.get_file(file_obj.file_id)
-                file_bytes = await telegram_file.download_as_bytearray()
-                filename = msg.audio.file_name if msg.audio and msg.audio.file_name else "audio.ogg"
-                user_text = await transcribe_audio(file_bytes, filename)
+
+                telegram_file = (
+                    await context.bot.get_file(
+                        file_obj.file_id
+                    )
+                )
+
+                file_bytes = (
+                    await telegram_file
+                    .download_as_bytearray()
+                )
+
+                if (
+                    msg.audio
+                    and msg.audio.file_name
+                ):
+                    filename = (
+                        msg.audio.file_name
+                    )
+                else:
+                    filename = "audio.ogg"
+
+                user_text = (
+                    await transcribe_audio(
+                        file_bytes,
+                        filename,
+                    )
+                )
+
             except Exception as e:
-                logger.warning("Ошибка аудио: %s", e)
-                user_text = "(отправила голосовое/кружок)"
+
+                logger.warning(
+                    "Ошибка аудио: %s",
+                    e,
+                )
+
+                user_text = (
+                    "(отправила "
+                    "голосовое/кружок)"
+                )
+
         elif msg.sticker:
+
             user_text = "[Отправила стикер]"
+
         elif msg.photo:
+
             user_text = "[Отправила фото]"
+
         elif msg.video:
+
             user_text = "[Отправила видео]"
+
         else:
+
             user_text = "[Медиа/Файл]"
 
-    add_history(chat_id, "user", user_text, limit=20)
-    logger.info("BUSINESS | chat=%s | %s", chat_id, user_text[:200])
+    # --------------------------------------------------------
+    # 🧠 Сохраняем сообщение
+    # --------------------------------------------------------
 
-    old_task = BUSINESS_RESPONSE_TASKS.get(chat_id)
-    if old_task and not old_task.done():
+    add_history(
+        chat_id,
+        "user",
+        user_text,
+        limit=20,
+    )
+
+    logger.info(
+        "BUSINESS | chat=%s | %s",
+        chat_id,
+        user_text[:200],
+    )
+
+    # --------------------------------------------------------
+    # ❌ Отменяем предыдущий ответ
+    # --------------------------------------------------------
+
+    old_task = BUSINESS_RESPONSE_TASKS.get(
+        chat_id
+    )
+
+    if (
+        old_task
+        and not old_task.done()
+    ):
         old_task.cancel()
 
+    # --------------------------------------------------------
+    # 🚀 Создаём новый ответ
+    # --------------------------------------------------------
+
     task = asyncio.create_task(
-        process_business_response(update, context, chat_id, msg.business_connection_id, msg.message_id)
+        process_business_response(
+            update,
+            context,
+            chat_id,
+            msg.business_connection_id,
+            msg.message_id,
+        )
     )
+
     BUSINESS_RESPONSE_TASKS[chat_id] = task
 
 
-async def process_business_response(update, context, chat_id, connection_id, message_id):
+# ============================================================
+# 💬 ГЕНЕРАЦИЯ BUSINESS ОТВЕТА
+# ============================================================
+
+async def process_business_response(
+    update,
+    context,
+    chat_id,
+    connection_id,
+    message_id,
+):
+
     try:
-        initial_delay = random.uniform(3.0, 6.0)
-        await asyncio.sleep(initial_delay)
+
+        # Небольшая естественная задержка
+        initial_delay = random.uniform(
+            2.5,
+            5.0,
+        )
+
+        await asyncio.sleep(
+            initial_delay
+        )
 
         async with get_chat_lock(chat_id):
+
             now = get_kgd_now()
-            current_time_str = now.strftime("%H:%M")
+
+            current_time_str = (
+                now.strftime("%H:%M")
+            )
+
             hour = now.hour
-            
+
             if 0 <= hour < 6:
-                time_of_day = "глубокая ночь"
+                time_of_day = (
+                    "глубокая ночь"
+                )
+
             elif 6 <= hour < 12:
                 time_of_day = "утро"
+
             elif 12 <= hour < 18:
                 time_of_day = "день"
+
             else:
                 time_of_day = "вечер"
 
-            interlocutor_name = CHAT_PERSON_NAMES.get(chat_id, "собеседница")
-
-            interlocutor_context = f"""
-ТЕКУЩАЯ СОБЕСЕДНИЦА: {interlocutor_name}
-
-Сейчас ты находишься именно в личной переписке с {interlocutor_name}.
-
-КРИТИЧЕСКИ ВАЖНО:
-- Ангелина, Влада, Соня и Лиля — ПОДРУГИ между собой, они все знакомы. Фил отлично знает каждую из них!
-- {interlocutor_name} сейчас пишет тебе лично.
-- Когда говоришь о текущей собеседнице, обращайся к ней на "ты".
-- НЕ называй её по имени в третьем лице без необходимости.
-- НЕ говори о ней как о посторонней девушке.
-- НЕ используй конструкции вроде "{interlocutor_name} скинула", "{interlocutor_name} сказала".
-- Вместо этого используй "ты скинула", "ты сказала".
-"""
-
-            system_prompt = FIL_LOVE_PROMPT_TEMPLATE.format(
-                current_time=current_time_str,
-                time_of_day=time_of_day
-            ) + "\n" + interlocutor_context
-
-            answer = await ask_ai(
-                system_prompt,
-                CHAT_HISTORY[chat_id],
-                max_tokens=100,
+            interlocutor_name = (
+                CHAT_PERSON_NAMES.get(
+                    chat_id,
+                    "собеседница",
+                )
             )
 
-            parts = split_into_messages(answer)
+            interlocutor_context = f"""
+Сейчас ты переписываешься лично с {interlocutor_name}.
+
+Это не группа.
+
+Она пишет тебе лично.
+
+Обращайся к ней на "ты".
+
+Не говори о ней в третьем лице.
+
+Ангелина, Влада, Соня и Лиля знакомы между собой.
+Ты знаешь их всех.
+
+Текущая собеседница:
+{interlocutor_name}
+"""
+
+            system_prompt = (
+                FIL_LOVE_PROMPT_TEMPLATE.format(
+                    current_time=current_time_str,
+                    time_of_day=time_of_day,
+                )
+                + "\n"
+                + interlocutor_context
+            )
+
+            # ------------------------------------------------
+            # 🤖 Получаем ответ
+            # ------------------------------------------------
+
+            answer = await generate_love_answer(
+                system_prompt,
+                CHAT_HISTORY[chat_id],
+            )
+
+            parts = split_into_messages(
+                answer
+            )
+
+            if not parts:
+                return
+
+            # ------------------------------------------------
+            # 📤 Отправляем
+            # ------------------------------------------------
 
             for part in parts:
+
                 await context.bot.send_chat_action(
                     chat_id=chat_id,
                     action="typing",
                     business_connection_id=connection_id,
                 )
 
-                typing_delay = max(1.0, min(len(part) * 0.05, 3.0))
-                await asyncio.sleep(typing_delay)
+                # Скорость печати
+                typing_delay = max(
+                    0.7,
+                    min(
+                        len(part) * 0.045,
+                        2.5,
+                    ),
+                )
+
+                await asyncio.sleep(
+                    typing_delay
+                )
 
                 await context.bot.send_message(
                     chat_id=chat_id,
@@ -473,161 +978,472 @@ async def process_business_response(update, context, chat_id, connection_id, mes
                     business_connection_id=connection_id,
                 )
 
-            add_history(chat_id, "assistant", answer, limit=20)
-            save_chat_history(CHAT_HISTORY)
+            # ------------------------------------------------
+            # 🧠 Сохраняем ОДИН исходный ответ
+            # ------------------------------------------------
+
+            add_history(
+                chat_id,
+                "assistant",
+                answer,
+                limit=20,
+            )
+
+            save_chat_history(
+                CHAT_HISTORY
+            )
 
     except asyncio.CancelledError:
+
+        logger.info(
+            "Предыдущий Business-ответ отменён | chat=%s",
+            chat_id,
+        )
+
         return
+
     except Exception as e:
-        logger.exception("Ошибка в Business-личке: %s", e)
+
+        logger.exception(
+            "Ошибка в Business-личке: %s",
+            e,
+        )
+
     finally:
-        if BUSINESS_RESPONSE_TASKS.get(chat_id) is asyncio.current_task():
-            BUSINESS_RESPONSE_TASKS.pop(chat_id, None)
+
+        if (
+            BUSINESS_RESPONSE_TASKS.get(
+                chat_id
+            )
+            is asyncio.current_task()
+        ):
+            BUSINESS_RESPONSE_TASKS.pop(
+                chat_id,
+                None,
+            )
 
 
-# ==============================
+# ============================================================
 # 👥 ГРУППА
-# ==============================
+# ============================================================
 
-def group_message_is_for_bot(msg, bot_username: str | None, bot_id: int) -> bool:
+def group_message_is_for_bot(
+    msg,
+    bot_username: str | None,
+    bot_id: int,
+) -> bool:
+
+    # Ответ на сообщение Фила
     if (
         msg.reply_to_message
         and msg.reply_to_message.from_user
-        and msg.reply_to_message.from_user.id == bot_id
+        and (
+            msg.reply_to_message
+            .from_user
+            .id
+            == bot_id
+        )
     ):
         return True
 
-    if not bot_username or not msg.text:
+    if (
+        not bot_username
+        or not msg.text
+    ):
         return False
 
-    pattern = rf"(?<!\w)@{re.escape(bot_username)}\b"
-    return bool(re.search(pattern, msg.text, flags=re.IGNORECASE))
+    pattern = (
+        rf"(?<!\w)"
+        rf"@{re.escape(bot_username)}"
+        rf"\b"
+    )
+
+    return bool(
+        re.search(
+            pattern,
+            msg.text,
+            flags=re.IGNORECASE,
+        )
+    )
 
 
-def clean_bot_mention(text: str, bot_username: str | None) -> str:
+def clean_bot_mention(
+    text: str,
+    bot_username: str | None,
+) -> str:
+
     if not bot_username:
         return text.strip()
 
-    pattern = rf"(?<!\w)@{re.escape(bot_username)}\b"
-    cleaned = re.sub(pattern, "", text, flags=re.IGNORECASE)
-    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    pattern = (
+        rf"(?<!\w)"
+        rf"@{re.escape(bot_username)}"
+        rf"\b"
+    )
+
+    cleaned = re.sub(
+        pattern,
+        "",
+        text,
+        flags=re.IGNORECASE,
+    )
+
+    cleaned = re.sub(
+        r"\s{2,}",
+        " ",
+        cleaned,
+    )
+
     return cleaned.strip()
 
 
-async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ============================================================
+# 👥 ОБРАБОТКА ГРУППЫ
+# ============================================================
+
+async def handle_group_message(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+):
+
     msg = update.message
-    if not msg or not msg.text:
+
+    if (
+        not msg
+        or not msg.text
+    ):
         return
 
     chat_id = msg.chat.id
-    bot_username = context.bot.username
 
-    if not group_message_is_for_bot(msg, bot_username, context.bot.id):
+    bot_username = (
+        context.bot.username
+    )
+
+    # Не обращались к Филу
+    if not group_message_is_for_bot(
+        msg,
+        bot_username,
+        context.bot.id,
+    ):
         return
 
-    clean_text = clean_bot_mention(msg.text, bot_username)
+    clean_text = clean_bot_mention(
+        msg.text,
+        bot_username,
+    )
+
     if not clean_text:
-        clean_text = "[к Филу обратились]"
+        clean_text = (
+            "[к Филу обратились]"
+        )
 
-    user_name = get_user_display_name(msg.from_user)
-    user_text = f"{user_name}: {clean_text}"
+    user_name = get_user_display_name(
+        msg.from_user
+    )
 
-    add_history(chat_id, "user", user_text, limit=20)
-    logger.info("GROUP | chat=%s | %s", chat_id, user_text[:200])
+    user_text = (
+        f"{user_name}: {clean_text}"
+    )
 
-    old_task = GROUP_RESPONSE_TASKS.get(chat_id)
-    if old_task and not old_task.done():
+    add_history(
+        chat_id,
+        "user",
+        user_text,
+        limit=20,
+    )
+
+    logger.info(
+        "GROUP | chat=%s | %s",
+        chat_id,
+        user_text[:200],
+    )
+
+    # --------------------------------------------------------
+    # ❌ Отменяем предыдущую генерацию
+    # --------------------------------------------------------
+
+    old_task = GROUP_RESPONSE_TASKS.get(
+        chat_id
+    )
+
+    if (
+        old_task
+        and not old_task.done()
+    ):
         old_task.cancel()
 
+    # --------------------------------------------------------
+    # 🚀 Новый ответ
+    # --------------------------------------------------------
+
     task = asyncio.create_task(
-        process_group_response(update, context, chat_id, msg.message_id)
+        process_group_response(
+            update,
+            context,
+            chat_id,
+            msg.message_id,
+        )
     )
+
     GROUP_RESPONSE_TASKS[chat_id] = task
 
 
-async def process_group_response(update, context, chat_id, message_id):
+# ============================================================
+# 🤖 ОТВЕТ В ГРУППЕ
+# ============================================================
+
+async def process_group_response(
+    update,
+    context,
+    chat_id,
+    message_id,
+):
+
     try:
-        group_delay = random.uniform(2.0, 5.0)
-        await asyncio.sleep(group_delay)
+
+        group_delay = random.uniform(
+            1.5,
+            4.0,
+        )
+
+        await asyncio.sleep(
+            group_delay
+        )
 
         async with get_chat_lock(chat_id):
+
             answer = await ask_ai(
                 FIL_GROUP_PROMPT,
                 CHAT_HISTORY[chat_id],
-                max_tokens=100,
+                max_tokens=60,
             )
 
-            parts = split_into_messages(answer)
+            answer = clean_ai_answer(
+                answer
+            )
+
+            # Если группа получила шаблонную фигню,
+            # делаем ещё одну попытку.
+            if has_bad_phrase(answer):
+
+                answer = await ask_ai(
+                    FIL_GROUP_PROMPT
+                    + """
+
+Предыдущий ответ был слишком шаблонным.
+Напиши совершенно другой короткий ответ.
+Без анализа и без искусственного вопроса.
+""",
+                    CHAT_HISTORY[chat_id],
+                    max_tokens=50,
+                )
+
+                answer = clean_ai_answer(
+                    answer
+                )
+
+            parts = split_into_messages(
+                answer
+            )
+
+            if not parts:
+                return
+
+            # ------------------------------------------------
+            # 📤 Отправка
+            # ------------------------------------------------
 
             for part in parts:
+
                 await context.bot.send_chat_action(
                     chat_id=chat_id,
                     action="typing",
                 )
 
-                typing_delay = max(1.0, min(len(part) * 0.05, 3.0))
-                await asyncio.sleep(typing_delay)
+                typing_delay = max(
+                    0.7,
+                    min(
+                        len(part) * 0.04,
+                        2.0,
+                    ),
+                )
+
+                await asyncio.sleep(
+                    typing_delay
+                )
 
                 await context.bot.send_message(
                     chat_id=chat_id,
                     text=part,
                 )
 
-            add_history(chat_id, "assistant", answer, limit=20)
-            save_chat_history(CHAT_HISTORY)
+            # ------------------------------------------------
+            # 🧠 История
+            # ------------------------------------------------
+
+            add_history(
+                chat_id,
+                "assistant",
+                answer,
+                limit=20,
+            )
+
+            save_chat_history(
+                CHAT_HISTORY
+            )
 
     except asyncio.CancelledError:
+
+        logger.info(
+            "Предыдущий ответ группы отменён | chat=%s",
+            chat_id,
+        )
+
         return
+
     except Exception as e:
-        logger.exception("Ошибка в Группе: %s", e)
+
+        logger.exception(
+            "Ошибка в Группе: %s",
+            e,
+        )
+
     finally:
-        if GROUP_RESPONSE_TASKS.get(chat_id) is asyncio.current_task():
-            GROUP_RESPONSE_TASKS.pop(chat_id, None)
+
+        if (
+            GROUP_RESPONSE_TASKS.get(
+                chat_id
+            )
+            is asyncio.current_task()
+        ):
+            GROUP_RESPONSE_TASKS.pop(
+                chat_id,
+                None,
+            )
 
 
-# ==============================
-# 🌐 WEB SERVER & MAIN
-# ==============================
+# ============================================================
+# 🌐 WEB SERVER
+# ============================================================
 
 async def health_check(request):
-    return web.Response(text="Bot is running OK", status=200)
+    return web.Response(
+        text="Bot is running OK",
+        status=200,
+    )
 
+
+# ============================================================
+# 🚀 MAIN
+# ============================================================
 
 async def main():
+
     if not TELEGRAM_BOT_TOKEN:
-        logger.error("TELEGRAM_BOT_TOKEN не задан!")
+
+        logger.error(
+            "TELEGRAM_BOT_TOKEN не задан!"
+        )
+
         return
 
+    # --------------------------------------------------------
+    # 🌐 Web server
+    # --------------------------------------------------------
+
     app = web.Application()
-    app.router.add_get("/", health_check)
-    app.router.add_get("/health", health_check)
+
+    app.router.add_get(
+        "/",
+        health_check,
+    )
+
+    app.router.add_get(
+        "/health",
+        health_check,
+    )
 
     runner = web.AppRunner(app)
+
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", PORT)
+
+    site = web.TCPSite(
+        runner,
+        "0.0.0.0",
+        PORT,
+    )
+
     await site.start()
-    logger.info("Веб-сервер запущен на порту %s", PORT)
 
-    application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+    logger.info(
+        "Веб-сервер запущен на порту %s",
+        PORT,
+    )
 
-    application.add_handler(TypeHandler(Update, handle_business), group=-1)
+    # --------------------------------------------------------
+    # 🤖 Telegram
+    # --------------------------------------------------------
+
+    application = (
+        ApplicationBuilder()
+        .token(TELEGRAM_BOT_TOKEN)
+        .build()
+    )
+
+    # Business сообщения
+    application.add_handler(
+        TypeHandler(
+            Update,
+            handle_business,
+        ),
+        group=-1,
+    )
+
+    # Обычная группа
     application.add_handler(
         MessageHandler(
-            (filters.ChatType.GROUPS | filters.ChatType.SUPERGROUP) & (~filters.COMMAND),
+            (
+                filters.ChatType.GROUPS
+                | filters.ChatType.SUPERGROUP
+            )
+            & (~filters.COMMAND),
             handle_group_message,
         )
     )
 
+    # --------------------------------------------------------
+    # ▶️ Запуск
+    # --------------------------------------------------------
+
     async with application:
+
         await application.start()
+
         await application.updater.start_polling()
-        logger.info("Бот запущен и готов к работе.")
-        
+
+        logger.info(
+            "Бот запущен и готов к работе."
+        )
+
         await asyncio.Event().wait()
 
 
+# ============================================================
+# 🏁 START
+# ============================================================
+
 if __name__ == "__main__":
+
     try:
+
         asyncio.run(main())
-    except (KeyboardInterrupt, SystemExit):
-        logger.info("Бот остановлен.")
+
+    except (
+        KeyboardInterrupt,
+        SystemExit,
+    ):
+
+        logger.info(
+            "Бот остановлен."
+        )
