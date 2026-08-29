@@ -1,4 +1,4 @@
-    text = re.sub(
+ text = re.sub(
         r"\*[^*]{1,100}\*",
         "",
         text,
@@ -1027,3 +1027,4 @@ if __name__ == "__main__":
         logger.info(
             "Бот остановлен."
         )
+   
