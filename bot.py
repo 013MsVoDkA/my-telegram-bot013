@@ -5,7 +5,6 @@ import os
 import random
 import re
 from datetime import datetime, timedelta, timezone
-
 import httpx
 from aiohttp import web
 from telegram import Update
@@ -54,7 +53,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
 # ==============================
 # 🧠 ИСТОРИЯ
 # ==============================
@@ -72,7 +70,6 @@ def load_chat_history():
         logger.warning("Не удалось загрузить историю: %s", e)
         return {}
 
-
 def save_chat_history(history):
     try:
         with open(HISTORY_FILE, "w", encoding="utf-8") as f:
@@ -86,12 +83,10 @@ CHAT_LOCKS = {}
 GROUP_RESPONSE_TASKS = {}
 BUSINESS_RESPONSE_TASKS = {}
 
-
 def get_chat_lock(chat_id):
     if chat_id not in CHAT_LOCKS:
         CHAT_LOCKS[chat_id] = asyncio.Lock()
     return CHAT_LOCKS[chat_id]
-
 
 def add_history(chat_id, role, content, limit=20):
     if chat_id not in CHAT_HISTORY:
@@ -104,10 +99,8 @@ def add_history(chat_id, role, content, limit=20):
 
     CHAT_HISTORY[chat_id] = CHAT_HISTORY[chat_id][-limit:]
 
-
 def get_kgd_now():
     return datetime.now(KGD_TZ)
-
 
 # ==============================
 # 🧠 ПРОМПТ ФИЛА (25 ПОЛНЫХ ПУНКТОВ)
@@ -123,7 +116,8 @@ FIL_LOVE_PROMPT_TEMPLATE = """
 ⛔️ СТРОЖАЙШИЙ ЗАПРЕТ НА ДУШНОСТЬ И ИИ-ШТАМПЫ (ЗА ЭТО БАН):
 - НЕ анализируй её эмоции ("Че-то ты злишься", "Не надо так", "Троллишь, говоришь?"). Это звучит как душный робот!
 - Не используй фразы: "не переживай", "не дергайся", "не волнуйся", "все нормально", "просто, че-то мне", "у тебя неплохие навыки", "планов много".
-- Отвечай легко, с хорошим юмором, без обид и без учительской душноты.
+- Отвечай легко, без обид и без учительской душноты.
+- Избегай восклицательных знаков (!). Почти никогда их не ставь, максимум очень редко. Живые парни в ТГ пишут спокойно, точки или вообще без знаков в конце.
 
 КРИТИЧЕСКОЕ ПРАВИЛО ФОРМАТИРОВАНИЯ:
 - Пиши раздельные мысли С НОВОЙ СТРОКИ (нажимай Enter между фразами). 
@@ -153,8 +147,8 @@ FIL_LOVE_PROMPT_TEMPLATE = """
 
 3. ГЕНДЕР: Разговаривай СТРОГО от мужского лица (устал, написал, сходил, решил, сделал).
 
-4. ХАРАКТЕР: Спокойный, уверенный парень с нормальным юмором. Без токсичной агрессии, но и без сопливой ванили. 
-Отвечай как обычный 22-летний парень. Можешь легко отшутиться, стебнуть в ответ или просто подыграть.
+4. ХАРАКТЕР И ЮМОР: Спокойный, уверенный парень с нормальным, живым и слегка туповатым/саркастичным человеческим юмором. Без токсичной агрессии, но и без сопливой ванили. 
+Отвечай как обычный 22-летний парень: умеешь по-простому угарать, стебать в ответ, выдавать абсурдные шутки или просто подыгрывать рофлам. Никаких шаблонных ИИ-шуток или идеальных анекдотов.
 
 5. ТОН: Свойский, простой, ироничный, живой.
 
@@ -171,13 +165,13 @@ FIL_LOVE_PROMPT_TEMPLATE = """
 
 Фил может:
 - отвечать коротко ("ага", "ну да", "хз", "да ладно");
-- подхватывать рофлы;
+- подхватывать рофлы и придумывать свои тупые смешные отмазки;
 - подкалывать в ответ;
 - писать простыми понятными фразами.
 
 7. ЗАБОТА ПО-МУЖСКИ: Проявляй внимание по-своему, без сюсюканья, просто и прямо.
 
-8. СТИЛЬ ОБЩЕНИЯ: Общайся как живой парень в Telegram. Короткие фразы, живой сленг.
+8. СТИЛЬ ОБЩЕНИЯ: Общайся как живой парень в Telegram. Короткие фразы, живой сленг. Меньше восклицательных знаков.
 
 9. ПУНКТУАЦИЯ И СИМВОЛЫ: Никогда не используй длинные тире и канцеляризмы.
 
@@ -230,9 +224,9 @@ FIL_GROUP_PROMPT = """
 2. Будь уверенным, с нормальным юмором, свойским парнем.
 3. Сам никого спать не выгоняй.
 4. Отвечай кратко: 1-2 предложения.
-5. ПОЛНЫЙ ЗАПРЕТ на ролеплей: никаких *действий*, *мыслей*, (скобок) или /слэшей/.
+5. Минимизируй восклицательные знаки (!).
+6. ПОЛНЫЙ ЗАПРЕТ на ролеплей: никаких *действий*, *мыслей*, (скобок) или /слэшей/.
 """
-
 
 # ==============================
 # 🤖 OPENROUTER
@@ -285,7 +279,6 @@ async def ask_ai(system_prompt: str, messages_history: list, max_tokens: int = 1
 
     return answer.strip()
 
-
 # ==============================
 # 🎙️ GROQ WHISPER
 # ==============================
@@ -327,7 +320,6 @@ async def transcribe_audio(file_bytes: bytearray, filename: str) -> str:
         logger.warning("Ошибка распознавания аудио: %s", e)
         return "(голосовое/кружок)"
 
-
 def get_user_display_name(user) -> str:
     if not user:
         return "Кто-то"
@@ -337,7 +329,6 @@ def get_user_display_name(user) -> str:
         name = f"{name} {user.last_name}".strip()
 
     return name or user.username or "Кто-то"
-
 
 def split_into_messages(text: str) -> list:
     clean_text = text.replace("—", " ").replace("–", " ").strip()
@@ -354,7 +345,6 @@ def split_into_messages(text: str) -> list:
                 result.append(s.strip())
 
     return result if result else [clean_text]
-
 
 # ==============================
 # 💼 BUSINESS ЛИЧКА
@@ -407,10 +397,10 @@ async def handle_business(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     BUSINESS_RESPONSE_TASKS[chat_id] = task
 
-
 async def process_business_response(update, context, chat_id, connection_id, message_id):
     try:
-        initial_delay = random.uniform(3.0, 6.0)
+        # Увеличена пауза перед ответом, чтобы давать собеседнице закончить мысль
+        initial_delay = random.uniform(4.0, 8.0)
         await asyncio.sleep(initial_delay)
 
         async with get_chat_lock(chat_id):
@@ -464,7 +454,8 @@ async def process_business_response(update, context, chat_id, connection_id, mes
                     business_connection_id=connection_id,
                 )
 
-                typing_delay = max(1.0, min(len(part) * 0.05, 3.0))
+                # Реалистичная (более медленная) скорость печати
+                typing_delay = max(1.5, min(len(part) * 0.1, 5.0))
                 await asyncio.sleep(typing_delay)
 
                 await context.bot.send_message(
@@ -484,7 +475,6 @@ async def process_business_response(update, context, chat_id, connection_id, mes
         if BUSINESS_RESPONSE_TASKS.get(chat_id) is asyncio.current_task():
             BUSINESS_RESPONSE_TASKS.pop(chat_id, None)
 
-
 # ==============================
 # 👥 ГРУППА
 # ==============================
@@ -503,7 +493,6 @@ def group_message_is_for_bot(msg, bot_username: str | None, bot_id: int) -> bool
     pattern = rf"(?<!\w)@{re.escape(bot_username)}\b"
     return bool(re.search(pattern, msg.text, flags=re.IGNORECASE))
 
-
 def clean_bot_mention(text: str, bot_username: str | None) -> str:
     if not bot_username:
         return text.strip()
@@ -512,7 +501,6 @@ def clean_bot_mention(text: str, bot_username: str | None) -> str:
     cleaned = re.sub(pattern, "", text, flags=re.IGNORECASE)
     cleaned = re.sub(r"\s{2,}", " ", cleaned)
     return cleaned.strip()
-
 
 async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
@@ -544,10 +532,9 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
     )
     GROUP_RESPONSE_TASKS[chat_id] = task
 
-
 async def process_group_response(update, context, chat_id, message_id):
     try:
-        group_delay = random.uniform(2.0, 5.0)
+        group_delay = random.uniform(3.0, 6.0)
         await asyncio.sleep(group_delay)
 
         async with get_chat_lock(chat_id):
@@ -565,7 +552,7 @@ async def process_group_response(update, context, chat_id, message_id):
                     action="typing",
                 )
 
-                typing_delay = max(1.0, min(len(part) * 0.05, 3.0))
+                typing_delay = max(1.5, min(len(part) * 0.1, 4.0))
                 await asyncio.sleep(typing_delay)
 
                 await context.bot.send_message(
@@ -584,14 +571,12 @@ async def process_group_response(update, context, chat_id, message_id):
         if GROUP_RESPONSE_TASKS.get(chat_id) is asyncio.current_task():
             GROUP_RESPONSE_TASKS.pop(chat_id, None)
 
-
 # ==============================
 # 🌐 WEB SERVER & MAIN
 # ==============================
 
 async def health_check(request):
     return web.Response(text="Bot is running OK", status=200)
-
 
 async def main():
     if not TELEGRAM_BOT_TOKEN:
@@ -624,7 +609,6 @@ async def main():
         logger.info("Бот запущен и готов к работе.")
         
         await asyncio.Event().wait()
-
 
 if __name__ == "__main__":
     try:
