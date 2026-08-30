@@ -432,8 +432,7 @@ async def process_business_response(update, context, chat_id, connection_id, mes
 - НЕ говори о ней как о посторонней девушке.
 - НЕ используй конструкции вроде "{interlocutor_name} скинула", "{interlocutor_name} сказала".
 - Вместо этого используй "ты скинула", "ты сказала".
-"""
-
+'''
             system_prompt = FIL_LOVE_PROMPT_TEMPLATE.format(
                 current_time=current_time_str,
                 time_of_day=time_of_day
@@ -614,3 +613,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
         logger.info("Бот остановлен.")
+'''
