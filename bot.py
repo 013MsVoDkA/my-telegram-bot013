@@ -224,7 +224,7 @@ FIL_GROUP_PROMPT = """
 1. Говори о себе СТРОГО в мужском роде.
 2. Будь уверенным, с нормальным юмором, свойским парнем.
 3. Сам никого спать не выгоняй.
-4. Отвечай кратко: 1-2 предложения.
+4. Отвечай кратко: 1-3 предложения.
 5. Минимизируй восклицательные знаки (!).
 6. ПОЛНЫЙ ЗАПРЕТ на ролеплей: никаких *действий*, *мыслей*, (скобок) или /слэшей/.
 """
@@ -408,9 +408,9 @@ async def process_business_response(update, context, chat_id, connection_id, mes
             current_time_str = now.strftime("%H:%M")
             hour = now.hour
             
-            if 0 <= hour < 6:
+            if 0 <= hour < 5:
                 time_of_day = "глубокая ночь"
-            elif 6 <= hour < 12:
+            elif 5 <= hour < 12:
                 time_of_day = "утро"
             elif 12 <= hour < 18:
                 time_of_day = "день"
@@ -533,7 +533,7 @@ async def handle_group_message(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def process_group_response(update, context, chat_id, message_id):
     try:
-        group_delay = random.uniform(3.0, 6.0)
+        group_delay = random.uniform(3.0, 7.0)
         await asyncio.sleep(group_delay)
 
         async with get_chat_lock(chat_id):
